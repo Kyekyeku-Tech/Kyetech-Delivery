@@ -19,7 +19,7 @@ await writeFile(resolve(fixture, 'main.jsx'), `import React,{useState} from 'rea
 initializeAppInstall();window.__installSnapshot=appInstallSnapshot;
 const user={uid:'fixture-rider',getIdToken:async()=>'fixture-token'};
 const order=id=>({id,status:'pending',riderId:null,createdAt:Date.now()});
-function Fixture(){const [state,setState]=useState({user,profile:{id:user.uid,role:'rider',approvalStatus:'approved',accountStatus:'active',online:true},isAdmin:false,orders:[order('old')],riderRequestsReady:true});window.__alertsState=state;window.__setAlerts=patch=>setState(previous=>({...previous,...patch}));window.__order=order;return <Context.Provider value={state}><div style={{padding:16,maxWidth:950,margin:'auto'}}><RiderAlerts onViewRequests={()=>window.__viewRequests=(window.__viewRequests||0)+1}/></div></Context.Provider>;}createRoot(document.getElementById('root')).render(<Fixture/>);`);
+function Fixture(){const [state,setState]=useState({user,profile:{id:user.uid,role:'rider',approvalStatus:'approved',accountStatus:'active',online:true},isAdmin:false,orders:[order('old'),{...order('done'),status:'delivered'},{...order('assigned'),riderId:'another-rider'},{...order('preferred'),preferredRiderId:'another-rider'}],riderRequestsReady:true});window.__alertsState=state;window.__setAlerts=patch=>setState(previous=>({...previous,...patch}));window.__order=order;return <Context.Provider value={state}><div style={{padding:16,maxWidth:950,margin:'auto'}}><RiderAlerts onViewRequests={()=>window.__viewRequests=(window.__viewRequests||0)+1}/></div></Context.Provider>;}createRoot(document.getElementById('root')).render(<Fixture/>);`);
 await build({ configFile: false, root: fixture, logLevel: 'error', plugins: [react()], resolve: { alias: [{ find: /.*context\/PlatformContext$/, replacement: resolve(fixture, 'context.jsx') }] }, build: { outDir: resolve(fixture, 'dist'), emptyOutDir: true } });
 const key = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 5)]).toString('base64url');
 const apiCalls = [];
@@ -69,15 +69,19 @@ const server = createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end(); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const origin = `http://127.0.0.1:${server.address().port}`, browser = await playwright.chromium.launch({ headless: true });
-async function pageFor({ width = 390, ios = false, permission = 'granted', realWorker = false, holdLoad = false, installed = false } = {}) {
+const origin = `http://127.0.0.1:${server.address().port}`, browser = await playwright.chromium.launch({ headless: true, channel: 'chromium' });
+async function pageFor({ width = 390, ios = false, permission = 'granted', realWorker = false, holdLoad = false, installed = false, standalone = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, userAgent: ios ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile Safari/604.1' : 'Mozilla/5.0 (Linux; Android 14) Chrome/147.0.0.0 Mobile Safari/537.36' });
   await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
-  await context.addInitScript(({ permission, key, realWorker, installed }) => {
+  await context.addInitScript(({ permission, key, realWorker, installed, standalone }) => {
     if (installed) localStorage.setItem('kyetech:app-installed', '1');
+    if (standalone) Object.defineProperty(navigator, 'standalone', { configurable: true, value: true });
     window.__permissionCalls = 0; window.__permissionChoice = permission;
     class Notification { static permission = 'default'; static async requestPermission() { window.__permissionCalls++; window.__permissionWasGesture = navigator.userActivation.isActive; this.permission = window.__permissionChoice; return this.permission; } }
     Object.defineProperty(window, 'Notification', { configurable: true, value: Notification });
+    window.__badgeCalls = []; window.__badgeCount = 0; window.__badgeMessages = [];
+    Object.defineProperty(navigator, 'setAppBadge', { configurable: true, value: async count => { window.__badgeCount = count; window.__badgeCalls.push({ action: 'set', count }); } });
+    Object.defineProperty(navigator, 'clearAppBadge', { configurable: true, value: async () => { window.__badgeCount = 0; window.__badgeCalls.push({ action: 'clear' }); } });
     let subscription = null;
     window.__pushSubscriptions = 0;
     const pushManager = { async getSubscription() { return subscription; }, async subscribe() { window.__pushSubscriptions++; subscription = { endpoint: 'https://fcm.googleapis.com/fcm/send/ui-fixture', options: {}, toJSON() { return { endpoint: this.endpoint, expirationTime: null, keys: { p256dh: key, auth: 'AQEBAQEBAQEBAQEBAQEBAQ' } }; }, async unsubscribe() { subscription = null; window.__unsubscribed = true; return true; } }; return subscription; } };
@@ -93,19 +97,34 @@ async function pageFor({ width = 390, ios = false, permission = 'granted', realW
       };
     } else {
       Object.defineProperty(window, 'PushManager', { configurable: true, value: class {} });
-      const registration = { active: { state: 'activated' }, pushManager };
+      const registration = { active: { state: 'activated', postMessage(message, ports) { window.__badgeMessages.push(message); const count = message.type === 'sync-rider-request-badge' ? new Set(message.orderIds || []).size : 0; ports?.[0]?.postMessage({ type: 'rider-request-badge', count }); } }, pushManager };
       Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve(registration), getRegistration: async () => registration, register: async () => registration } });
     }
-  }, { permission, key, realWorker, installed });
+  }, { permission, key, realWorker, installed, standalone });
   const page = await context.newPage(), errors = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto(holdLoad ? `${origin}/?hold-load=1` : origin, { waitUntil: holdLoad ? 'domcontentloaded' : 'load' }); await page.getByRole('button', { name: 'Enable alerts', exact: true }).waitFor();
+  await page.goto(holdLoad ? `${origin}/?hold-load=1` : origin, { waitUntil: holdLoad ? 'domcontentloaded' : 'load' }); await alertsSwitch(page).waitFor();
   return { page, context, errors };
 }
-const alertsEnabled = page => page.getByRole('button', { name: 'Alerts enabled', exact: true });
+const alertsSwitch = page => page.getByRole('switch', { name: 'Delivery alerts', exact: true });
+async function waitForSwitch(page, checked, timeout = 10000) {
+  await page.waitForFunction(checked => {
+    const element = document.querySelector('[role="switch"][aria-label="Delivery alerts"]');
+    return element?.getAttribute('aria-checked') === String(checked) && !element.disabled;
+  }, checked, { timeout });
+}
 const freshRequests = page => page.locator('.rider-alerts-new');
-async function compactControls(page, labels) {
+async function waitForBadgeMessage(page, ids) {
+  await page.waitForFunction(ids => {
+    const message = window.__badgeMessages.at(-1);
+    return ids === null ? message?.type === 'clear-rider-request-badge' : message?.type === 'sync-rider-request-badge' && JSON.stringify(message.orderIds) === JSON.stringify(ids);
+  }, ids);
+}
+async function compactControls(page, checked) {
   const card = page.getByRole('region', { name: 'Delivery request alerts', exact: true });
-  assert.deepEqual(await card.locator('.rider-alerts-actions').getByRole('button').allTextContents(), labels);
+  assert.equal(await card.getByRole('switch', { name: 'Delivery alerts', exact: true }).count(), 1);
+  assert.equal(await alertsSwitch(page).getAttribute('aria-checked'), String(checked));
+  assert.equal((await alertsSwitch(page).innerText()).trim(), checked ? 'On' : 'Off');
+  assert.equal(await card.getByRole('button').count(), 0, 'Normal controls must contain only the On/Off switch.');
   assert.equal(await card.locator('.rider-alerts-copy, p:not(.rider-alerts-message), small, strong, h1, h2, h3').count(), 0, 'Normal alert controls must not include static descriptions or a title.');
   assert.equal(await card.locator('.rider-alerts-message').count(), 0, 'Normal alert controls must not show an error or setup message.');
   const geometry = await card.evaluate(element => ({ card: element.getBoundingClientRect().toJSON(), width: innerWidth, buttons: [...element.querySelectorAll('button')].map(button => ({ bounds: button.getBoundingClientRect().toJSON(), scrollWidth: button.scrollWidth, clientWidth: button.clientWidth })) }));
@@ -114,6 +133,8 @@ async function compactControls(page, labels) {
     assert.ok(button.bounds.left >= geometry.card.left && button.bounds.right <= geometry.card.right, 'Every button must fit the card.');
     assert.ok(button.scrollWidth <= button.clientWidth + 1, 'Button text must not be clipped.');
   }
+  const switchBounds = await alertsSwitch(page).boundingBox();
+  assert.ok(switchBounds.width <= 140 && switchBounds.height >= 44 && switchBounds.height <= 60, 'The switch must remain small with a usable tap target.');
 }
 try {
   const slow = await pageFor({ realWorker: true, holdLoad: true });
@@ -121,9 +142,8 @@ try {
     assert.notEqual(await slow.page.evaluate(() => document.readyState), 'complete');
     assert.equal(await slow.page.evaluate(() => navigator.serviceWorker.controller), null);
     const before = apiCalls.length;
-    await slow.page.getByRole('button', { name: 'Enable alerts', exact: true }).click();
-    await alertsEnabled(slow.page).waitFor({ timeout: 10000 });
-    assert.equal(await alertsEnabled(slow.page).isDisabled(), true);
+    await alertsSwitch(slow.page).click();
+    await waitForSwitch(slow.page, true);
     const worker = await slow.page.evaluate(async () => ({ attempts: window.__workerRegistrations, state: (await navigator.serviceWorker.getRegistration('/')).active.state, readyState: document.readyState, subscriptions: window.__pushSubscriptions }));
     assert.deepEqual(worker.attempts, [{ scriptURL: '/sw.js', options: { scope: '/', updateViaCache: 'none' }, readyState: 'interactive' }]);
     assert.equal(worker.state, 'activated');
@@ -142,17 +162,18 @@ try {
     const retry = await pageFor({ realWorker: true, holdLoad: true });
     try {
       const before = apiCalls.length, started = Date.now();
-      await retry.page.getByRole('button', { name: 'Enable alerts', exact: true }).click();
+      await alertsSwitch(retry.page).click();
       await retry.page.locator('.rider-alerts-message').waitFor({ timeout: 5000 });
-      assert.equal(await retry.page.locator('.rider-alerts-message').innerText(), 'Phone notifications could not start. Check your connection and tap Enable alerts again.');
+      assert.equal(await retry.page.locator('.rider-alerts-message').innerText(), 'Phone notifications could not start. Check your connection and turn alerts on again.');
       assert.ok(Date.now() - started < 5000, 'A failed worker must report promptly instead of waiting on serviceWorker.ready.');
       assert.ok(!apiCalls.slice(before).some(call => call.method === 'POST' && call.body.action === 'subscribe'));
-      assert.equal(await retry.page.getByRole('button', { name: 'Enable alerts', exact: true }).isEnabled(), true);
+      await waitForSwitch(retry.page, false);
+      assert.equal(await alertsSwitch(retry.page).isEnabled(), true);
+      assert.equal(await retry.page.evaluate(() => localStorage.getItem('kyetech:rider-alerts:fixture-rider')), '0');
       failWorkerRequests = false;
       failPrecacheRequests = false;
-      await retry.page.getByRole('button', { name: 'Enable alerts', exact: true }).click();
-      await alertsEnabled(retry.page).waitFor({ timeout: 10000 });
-      assert.equal(await alertsEnabled(retry.page).isDisabled(), true);
+      await alertsSwitch(retry.page).click();
+      await waitForSwitch(retry.page, true);
       assert.equal(await retry.page.evaluate(() => window.__workerRegistrations.length), 2);
       assert.equal(await retry.page.evaluate(() => document.readyState), 'interactive');
       assert.equal(await retry.page.locator('.rider-alerts-message').count(), 0);
@@ -163,19 +184,19 @@ try {
 
   for (const width of [320, 390, 1366]) {
     const { page, context, errors } = await pageFor({ width });
-    await compactControls(page, ['Enable alerts']);
-    await page.getByRole('button', { name: 'Enable alerts', exact: true }).click();
-    await alertsEnabled(page).waitFor();
-    assert.equal(await alertsEnabled(page).isDisabled(), true);
-    await compactControls(page, ['Alerts enabled', 'Test sound', 'Turn off']);
+    await compactControls(page, false);
+    await alertsSwitch(page).click();
+    await waitForSwitch(page, true);
+    await compactControls(page, true);
+    await waitForBadgeMessage(page, ['old']);
     assert.equal(await page.evaluate(() => window.__permissionWasGesture), true);
     assert.equal(await page.evaluate(() => window.__pushSubscriptions), 1);
-    await page.getByRole('button', { name: 'Test sound', exact: true }).click();
-    assert.equal(await page.evaluate(() => window.__permissionCalls), 1, 'Test sound must not ask for notification permission again.');
+    assert.equal(await page.evaluate(() => window.__permissionCalls), 1);
     await page.screenshot({ path: resolve(fixture, `alerts-enabled-${width}.png`), fullPage: true });
     assert.equal(await freshRequests(page).count(), 0);
     await page.evaluate(() => window.__setAlerts({ orders: [window.__order('old'), window.__order('new')] }));
     await page.getByRole('button', { name: 'View requests (1)', exact: true }).waitFor();
+    await waitForBadgeMessage(page, ['old', 'new']);
     await page.getByRole('button', { name: 'View requests (1)', exact: true }).click(); assert.equal(await page.evaluate(() => window.__viewRequests), 1);
     await freshRequests(page).waitFor({ state: 'hidden' });
     await page.evaluate(() => window.__setAlerts({ orders: [window.__order('old'), window.__order('new')] })); assert.equal(await freshRequests(page).count(), 0);
@@ -183,41 +204,56 @@ try {
     await page.getByRole('button', { name: 'View requests (1)', exact: true }).waitFor();
     await page.evaluate(() => window.__setAlerts({ profile: { id: 'fixture-rider', role: 'rider', approvalStatus: 'approved', accountStatus: 'active', online: false } }));
     await freshRequests(page).waitFor({ state: 'hidden' });
-    await compactControls(page, ['Alerts enabled', 'Test sound', 'Turn off']);
+    await compactControls(page, true);
+    await waitForBadgeMessage(page, null);
     await page.evaluate(() => window.__setAlerts({ orders: [window.__order('offline')] }));
     await page.waitForFunction(() => window.__alertsState.orders[0].id === 'offline');
     await page.evaluate(() => window.__setAlerts({ profile: { id: 'fixture-rider', role: 'rider', approvalStatus: 'approved', accountStatus: 'active', online: true } }));
     await page.waitForFunction(() => window.__alertsState.profile.online === true);
     assert.equal(await freshRequests(page).count(), 0);
-    await page.getByRole('button', { name: 'Turn off', exact: true }).click(); await page.waitForFunction(() => window.__unsubscribed === true);
-    await compactControls(page, ['Enable alerts']);
+    await alertsSwitch(page).click(); await page.waitForFunction(() => window.__unsubscribed === true);
+    await waitForSwitch(page, false);
+    await compactControls(page, false);
+    await waitForBadgeMessage(page, null);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true); assert.deepEqual(errors, []);
     await page.screenshot({ path: resolve(fixture, `alerts-${width}.png`), fullPage: true }); await context.close();
     console.log(`PASS rider alerts: permission, fresh requests, online state, mute and layout at ${width}px`);
   }
-  const denied = await pageFor({ permission: 'denied' }); await denied.page.getByRole('button', { name: 'Enable alerts', exact: true }).click();
-  await denied.page.getByText(/Phone notifications are blocked/).waitFor(); await denied.page.getByRole('button', { name: 'Test sound', exact: true }).waitFor();
-  assert.equal(await denied.page.getByRole('button', { name: 'Enable alerts', exact: true }).isEnabled(), true);
-  assert.equal(await alertsEnabled(denied.page).count(), 0); assert.equal(await denied.page.evaluate(() => window.__pushSubscriptions), 0);
+  const denied = await pageFor({ permission: 'denied' }); await alertsSwitch(denied.page).click();
+  await denied.page.getByText(/Notifications are blocked/).waitFor();
+  await waitForSwitch(denied.page, false);
+  assert.equal(await alertsSwitch(denied.page).isEnabled(), true);
+  assert.equal(await denied.page.evaluate(() => window.__pushSubscriptions), 0);
+  assert.equal(await denied.page.evaluate(() => localStorage.getItem('kyetech:rider-alerts:fixture-rider')), '0');
+  await denied.page.evaluate(() => { window.__permissionChoice = 'granted'; Notification.permission = 'default'; });
+  await alertsSwitch(denied.page).click();
+  await waitForSwitch(denied.page, true);
+  await compactControls(denied.page, true);
   assert.deepEqual(denied.errors, []); await denied.context.close();
-  console.log('PASS permission denial preserves sound controls and explains recovery');
+  console.log('PASS permission denial leaves the switch Off and permits another On tap to retry');
   for (const installed of [false, true]) {
     const ios = await pageFor({ ios: true, installed });
-    await compactControls(ios.page, installed ? ['Enable alerts'] : ['Enable alerts', 'Install guide']);
-    if (!installed) {
-      await ios.page.getByRole('button', { name: 'Install guide', exact: true }).click();
-      assert.equal(await ios.page.evaluate(() => window.__installSnapshot().dialogMode), 'guide');
-      assert.equal(await ios.page.evaluate(() => window.__permissionCalls), 0);
-      assert.equal(await ios.page.evaluate(() => window.__pushSubscriptions), 0);
-    }
-    await ios.page.getByRole('button', { name: 'Enable alerts', exact: true }).click();
-    await ios.page.getByRole('button', { name: 'Test sound', exact: true }).waitFor();
+    await compactControls(ios.page, false);
+    await alertsSwitch(ios.page).click();
     await ios.page.locator('.rider-alerts-message').filter({ hasText: /Home Screen/i }).waitFor();
     assert.equal(await ios.page.evaluate(() => window.__permissionCalls), 0);
     assert.equal(await ios.page.evaluate(() => window.__pushSubscriptions), 0);
-    assert.equal(await alertsEnabled(ios.page).count(), 0);
+    await waitForSwitch(ios.page, false);
+    assert.equal(await ios.page.evaluate(() => localStorage.getItem('kyetech:rider-alerts:fixture-rider')), '0');
     assert.deepEqual(ios.errors, []); await ios.context.close();
   }
+  const homeScreen = await pageFor({ ios: true, installed: true, standalone: true });
+  await compactControls(homeScreen.page, false);
+  await alertsSwitch(homeScreen.page).click();
+  await waitForSwitch(homeScreen.page, true);
+  await compactControls(homeScreen.page, true);
+  assert.equal(await homeScreen.page.evaluate(() => window.__permissionWasGesture), true);
+  assert.equal(await homeScreen.page.evaluate(() => window.__pushSubscriptions), 1);
+  await alertsSwitch(homeScreen.page).click();
+  await waitForSwitch(homeScreen.page, false);
+  assert.equal(await homeScreen.page.evaluate(() => window.__unsubscribed), true);
+  assert.deepEqual(homeScreen.errors, []); await homeScreen.context.close();
   assert.ok(apiCalls.every(call => call.authorization === 'Bearer fixture-token')); assert.ok(apiCalls.some(call => call.method === 'DELETE'));
-  console.log('PASS compact iPhone controls honor remembered installation and explain Home Screen setup on demand');
+  console.log('PASS iPhone browser setup remains Off and explains Home Screen requirements on demand');
+  console.log('PASS a simulated iPhone Home Screen launch can enroll and disable notifications through the switch');
 } finally { releasePageLoad(); await browser.close(); await new Promise(resolve => server.close(resolve)); }

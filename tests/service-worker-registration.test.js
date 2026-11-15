@@ -35,7 +35,7 @@ test('an active worker is usable while a newer version waits without forcing an 
 test('a failed installation reports a retry error promptly and can be registered again', async () => {
   const f = fixture(), pending = ensureServiceWorker({ container: f.container, timeoutMs: 1000 });
   await new Promise(resolve => setImmediate(resolve));
-  const rejected = assert.rejects(pending, /Check your connection and tap Enable alerts again/);
+  const rejected = assert.rejects(pending, /Check your connection and turn alerts on again/);
   f.installing.state = 'redundant'; f.registration.installing = null; f.installing.dispatchEvent(new Event('statechange'));
   await rejected;
   f.registration.active = { state: 'activated' };

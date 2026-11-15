@@ -1,5 +1,5 @@
 const attempts = new WeakMap();
-const setupMessage = 'Phone notifications could not start. Check your connection and tap Enable alerts again.';
+const setupMessage = 'Phone notifications could not start. Check your connection and turn alerts on again.';
 
 function startRegistration(container) {
   if (attempts.has(container)) return attempts.get(container);

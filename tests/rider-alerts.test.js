@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createECDH } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { createRiderAlertsService, createRiderAlertsMiddleware, createFirebaseRiderAlertsStore,
-  validatePushSubscription, validatePushEndpoint, riderPushSubscriptionId } from '../server/riderAlerts.mjs';
+  validatePushSubscription, validatePushEndpoint, riderPushSubscriptionId, riderPushVapidKeyId } from '../server/riderAlerts.mjs';
 import endpointHandler from '../api/rider-alerts.js';
 
 const NOW = 1_800_000_000_000;
@@ -30,7 +30,7 @@ function fixture() {
       customerName: 'PRIVATE_NAME', phone: 'PRIVATE_PHONE', pickup: 'PRIVATE_ADDRESS' }]]),
     riders: [{ uid: 'rider', accountStatus: 'active', approvalStatus: 'approved', online: true }],
     subscriptions: new Map([[subscription().endpoint, { uid: 'rider', ...subscription() }]]),
-    stores: new Map(), members: new Map(), invites: new Map(), dispatches: new Map(), sent: [], deleted: [],
+    stores: new Map(), members: new Map(), invites: new Map(), dispatches: new Map(), sent: [], deleted: [], logs: [], sleeps: [], time: NOW,
   };
   f.store = {
     getUser: async uid => f.users.get(uid) ?? null,
@@ -40,18 +40,25 @@ function fixture() {
     getStoreInvite: async id => f.invites.get(id) ?? null,
     listOnlineRiders: async () => [...f.riders],
     listSubscriptions: async uid => [...f.subscriptions.values()].filter(sub => sub.uid === uid),
-    saveSubscription: async (uid, sub) => { f.subscriptions.set(sub.endpoint, { uid, ...sub }); },
+    getSubscriptionById: async id => [...f.subscriptions.values()].find(sub => riderPushSubscriptionId(sub.endpoint) === id) ?? null,
+    saveSubscription: async (uid, sub, now, vapidKeyId) => { f.subscriptions.set(sub.endpoint, { uid, ...sub, vapidKeyId, status: 'active' }); },
+    markRequiresResubscribe: async (uid, endpoint) => { const saved = f.subscriptions.get(endpoint); if (saved?.uid === uid) saved.status = 'requiresResubscribe'; },
     deleteSubscription: async (uid, url) => { if (f.subscriptions.get(url)?.uid === uid) { f.subscriptions.delete(url); f.deleted.push(url); } },
     claimDispatch: async (id, leaseId, now) => {
       const existing = f.dispatches.get(id);
       if (existing?.status === 'complete' || existing?.leaseUntil > now) return false;
-      f.dispatches.set(id, { leaseId, leaseUntil: now + 60_000, status: 'sending' }); return true;
+      const acceptedIds = existing?.acceptedIds ?? [];
+      f.dispatches.set(id, { ...existing, leaseId, leaseUntil: now + 60_000, status: 'sending', acceptedIds }); return { acceptedIds };
     },
-    completeDispatch: async (id, leaseId) => { if (f.dispatches.get(id)?.leaseId === leaseId) f.dispatches.get(id).status = 'complete'; },
+    recordAccepted: async (id, leaseId, subscriptionId) => { const saved = f.dispatches.get(id); if (saved?.leaseId === leaseId && saved.status === 'sending') saved.acceptedIds = [...new Set([...saved.acceptedIds, subscriptionId])]; },
+    completeDispatch: async (id, leaseId, now, outcome) => {
+      const saved = f.dispatches.get(id);
+      if (saved?.leaseId === leaseId) { saved.status = outcome.retryableFailures || outcome.rejected ? 'retryable' : outcome.requiresResubscribe ? 'requiresResubscribe' : 'complete'; saved.lastOutcome = outcome; saved.leaseUntil = null; }
+    },
   };
   f.verifyToken = async token => { if (['revoked', 'disabled'].includes(token)) throw new Error('PRIVATE_TOKEN_ERROR'); return { uid: token }; };
   f.sendPush = async (...args) => { f.sent.push(args); };
-  f.service = createRiderAlertsService({ verifyToken: f.verifyToken, store: f.store, sendPush: (...args) => f.sendPush(...args), publicKey, privateKey, now: () => NOW });
+  f.service = createRiderAlertsService({ verifyToken: f.verifyToken, store: f.store, sendPush: (...args) => f.sendPush(...args), publicKey, privateKey, now: () => f.time, sleep: async ms => { f.sleeps.push(ms); await f.onSleep?.(); }, logger: entry => f.logs.push(structuredClone(entry)) });
   f.handler = createRiderAlertsMiddleware({ service: f.service });
   f.dispatch = (uid = 'customer') => f.service.handle(request('POST', uid), { action: 'dispatch', orderId: 'order' });
   return f;
@@ -118,7 +125,7 @@ test('preferred-rider dispatch uses a generic payload and never exposes subscrip
   const f = fixture(); addRider(f, 'preferred'); f.orders.get('order').preferredRiderId = 'preferred';
   const result = await f.dispatch(); assert.deepEqual(result, { ok: true }); assert.equal(f.sent.length, 1);
   const [sub, payload, options] = f.sent[0]; assert.equal(sub.endpoint, subscription('preferred').endpoint);
-  assert.deepEqual(JSON.parse(payload), { type: 'new-rider-request', orderId: 'order', title: 'New delivery request', body: 'A new delivery request is waiting. Open KyeTech to view it.', url: '/?rider-request=order' });
+  assert.deepEqual(JSON.parse(payload), { type: 'new-rider-request', orderId: 'order', title: 'New delivery alert', body: 'A new delivery request is waiting. Open KyeTech Delivery to review it.', url: '/?rider-request=order' });
   assert.ok(!payload.includes('PRIVATE_')); assert.equal(options.TTL, 300); assert.equal(options.urgency, 'high'); assert.equal(options.timeout, 8000);
   assert.ok(!JSON.stringify(result).includes('endpoint')); assert.ok(!JSON.stringify(result).includes(privateKey));
 });
@@ -155,6 +162,84 @@ test('expired subscriptions are removed; other push failures preserve subscripti
     f.sent.push(sub);
   };
   assert.deepEqual(await f.dispatch(), { ok: true }); assert.equal(f.sent.length, 1); assert.equal(f.deleted.length, 2); assert.ok(f.subscriptions.has(subscription('failed500').endpoint)); assert.ok(f.orders.has('order'));
+  assert.equal(f.dispatches.get('order').status, 'retryable');
+  assert.equal(f.dispatches.get('order').lastOutcome.retryableFailures, 1);
+});
+
+test('provider authentication rejection repairs only the signed-in rider device and logs no private data', async () => {
+  const f = fixture(), id = riderPushSubscriptionId(subscription().endpoint);
+  const statusRequest = uid => ({ ...request('GET', uid), url: '/api/rider-alerts?subscriptionId=' + id });
+  assert.deepEqual(await f.service.handle(statusRequest('rider')), { publicKey, requiresResubscribe: true });
+  await f.service.handle(request('POST'), { action: 'subscribe', subscription: subscription() });
+  assert.equal(f.subscriptions.get(subscription().endpoint).vapidKeyId, riderPushVapidKeyId(publicKey));
+  assert.deepEqual(await f.service.handle(statusRequest('rider')), { publicKey, requiresResubscribe: false });
+  f.sendPush = async () => { throw Object.assign(new Error('PRIVATE_PROVIDER_BODY ' + privateKey + ' ' + subscription().endpoint), { statusCode: 403, body: 'PRIVATE_DETAILS' }); };
+  await f.dispatch();
+  assert.equal(f.subscriptions.get(subscription().endpoint).status, 'requiresResubscribe');
+  assert.equal(f.dispatches.get('order').status, 'requiresResubscribe');
+  assert.deepEqual(f.logs.at(-1).statusCodes, { 403: 1 });
+  assert.equal(f.logs.at(-1).accepted, 0);
+  const log = JSON.stringify(f.logs);
+  for (const forbidden of ['PRIVATE_', privateKey, subscription().endpoint, id, 'PRIVATE_NAME', 'customer']) assert.ok(!log.includes(forbidden));
+  addRider(f, 'other');
+  assert.deepEqual(await f.service.handle(statusRequest('other')), { publicKey, requiresResubscribe: false });
+  assert.deepEqual(await f.service.handle(statusRequest('rider')), { publicKey, requiresResubscribe: true });
+  await f.service.handle(request('POST'), { action: 'subscribe', subscription: subscription() });
+  f.sendPush = async (...args) => { f.sent.push(args); return { statusCode: 201 }; };
+  await f.dispatch(); assert.equal(f.sent.length, 2); assert.equal(f.dispatches.get('order').status, 'complete');
+});
+
+test('transient provider errors retry once and later partial retries skip already accepted devices', async () => {
+  const f = fixture(); addRider(f, 'second');
+  const attempts = new Map(); let available = false;
+  f.sendPush = async sub => {
+    attempts.set(sub.endpoint, (attempts.get(sub.endpoint) || 0) + 1);
+    if (sub.endpoint === subscription('second').endpoint && !available) throw Object.assign(new Error('temporary'), { statusCode: 503 });
+    return { statusCode: 201 };
+  };
+  await f.dispatch();
+  assert.equal(attempts.get(subscription().endpoint), 1); assert.equal(attempts.get(subscription('second').endpoint), 2);
+  assert.equal(f.dispatches.get('order').status, 'retryable');
+  assert.deepEqual(f.dispatches.get('order').acceptedIds, [riderPushSubscriptionId(subscription().endpoint)]);
+  available = true; await f.dispatch();
+  assert.equal(attempts.get(subscription().endpoint), 1); assert.equal(attempts.get(subscription('second').endpoint), 3);
+  assert.equal(f.dispatches.get('order').status, 'complete'); assert.equal(f.logs.at(-1).alreadyAccepted, 1);
+});
+
+test('retry attempts recheck rider availability, order availability and the lease deadline', async () => {
+  for (const change of ['offline', 'accepted', 'deadline']) {
+    const f = fixture(); let attempts = 0;
+    f.sendPush = async () => { attempts++; throw Object.assign(new Error('temporary'), { code: 'ETIMEDOUT' }); };
+    f.onSleep = () => { if (change === 'offline') f.users.get('rider').online = false; else if (change === 'accepted') f.orders.get('order').status = 'accepted'; else f.time += 41000; };
+    await f.dispatch(); assert.equal(attempts, 1);
+    assert.equal(f.dispatches.get('order').status, change === 'deadline' ? 'retryable' : 'complete');
+  }
+});
+
+test('stale VAPID records are held for resubscription while unversioned devices still receive an attempt', async () => {
+  const f = fixture(); addRider(f, 'stale'); f.subscriptions.get(subscription('stale').endpoint).vapidKeyId = 'old-key';
+  await f.dispatch();
+  assert.equal(f.sent.length, 1); assert.equal(f.sent[0][0].endpoint, subscription().endpoint);
+  assert.equal(f.subscriptions.get(subscription('stale').endpoint).status, 'requiresResubscribe');
+  assert.equal(f.dispatches.get('order').status, 'requiresResubscribe');
+});
+
+test('subscription status queries reject malformed IDs and order IDs reject trailing newlines', async () => {
+  const f = fixture();
+  for (const query of ['bad', 'a'.repeat(64) + '\n', ['a'.repeat(64), 'b'.repeat(64)], '']) await assert.rejects(f.service.handle({ ...request('GET'), query: { subscriptionId: query } }), error => error.status === 400);
+  await assert.rejects(f.service.handle({ ...request('GET'), url: '/api/rider-alerts?subscriptionId=' + 'a'.repeat(64) + '&subscriptionId=' + 'b'.repeat(64) }), error => error.status === 400);
+  await assert.rejects(f.service.handle(request('POST', 'customer'), { action: 'dispatch', orderId: 'order\n' }), error => error.status === 400);
+});
+
+test('storage failures wait for other accepted sends to finish before returning and never resend an accepted send', async () => {
+  const f = fixture(); addRider(f, 'second'); let release, finished = false;
+  const gate = new Promise(resolve => { release = resolve; }), original = f.store.recordAccepted;
+  f.store.recordAccepted = async (...args) => { if (args[2] === riderPushSubscriptionId(subscription().endpoint)) throw new Error('PRIVATE_WRITE_ERROR'); await gate; await original(...args); };
+  const rejected = assert.rejects(f.dispatch(), /PRIVATE_WRITE_ERROR/).then(() => { finished = true; });
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(f.sent.length, 2); assert.equal(finished, false);
+  release(); await rejected; assert.equal(f.sent.length, 2);
+  assert.ok(f.dispatches.get('order').acceptedIds.includes(riderPushSubscriptionId(subscription('second').endpoint)));
+  assert.equal(f.logs.at(-1).status, 'storage-error'); assert.equal(f.logs.at(-1).accepted, 2);
 });
 test('merchant team dispatch requires merchant role, enabled membership, accepted invite and active approved store', async () => {
   const f = fixture(); f.users.set('team', { role: 'merchant', accountStatus: 'active' }); addMerchant(f);
@@ -190,9 +275,18 @@ test('Firestore dispatch leases and subscription deletion enforce transaction ow
     const result = queue.then(() => work({ get: async ref => snapshot(ref), set: (ref, value) => docs.set(ref.path, value), update: (ref, value) => docs.set(ref.path, { ...docs.get(ref.path), ...value }), delete: ref => docs.delete(ref.path) }));
     queue = result.then(() => {}, () => {}); return result;
   } };
-  const store = createFirebaseRiderAlertsStore(firestore); assert.equal(await store.claimDispatch('order', 'lease1', NOW), true); assert.equal(await store.claimDispatch('order', 'lease2', NOW), false);
-  assert.equal(await store.claimDispatch('order', 'lease2', NOW + 60_001), true); await store.completeDispatch('order', 'lease1', NOW + 60_002); assert.equal(docs.get('riderPushDispatches/order').status, 'sending');
-  await store.completeDispatch('order', 'lease2', NOW + 60_003); assert.equal(await store.claimDispatch('order', 'lease3', NOW + 120_000), false);
+  const store = createFirebaseRiderAlertsStore(firestore), outcome = { retryableFailures: 0, rejected: 0, requiresResubscribe: 0 };
+  assert.deepEqual(await store.claimDispatch('order', 'lease1', NOW), { acceptedIds: [] }); assert.equal(await store.claimDispatch('order', 'lease2', NOW), false);
+  const acceptedId = riderPushSubscriptionId(subscription().endpoint);
+  await store.recordAccepted('order', 'lease1', acceptedId, NOW);
+  assert.deepEqual(await store.claimDispatch('order', 'lease2', NOW + 60_001), { acceptedIds: [acceptedId] });
+  await store.recordAccepted('order', 'lease1', 'stale-lease', NOW + 60_002); assert.deepEqual(docs.get('riderPushDispatches/order').acceptedIds, [acceptedId]);
+  await store.completeDispatch('order', 'lease1', NOW + 60_002, outcome); assert.equal(docs.get('riderPushDispatches/order').status, 'sending');
+  await store.completeDispatch('order', 'lease2', NOW + 60_003, { ...outcome, retryableFailures: 1 }); assert.equal(docs.get('riderPushDispatches/order').status, 'retryable');
+  assert.deepEqual(await store.claimDispatch('order', 'lease3', NOW + 120_000), { acceptedIds: [acceptedId] });
+  await store.completeDispatch('order', 'lease3', NOW + 120_001, outcome); assert.equal(await store.claimDispatch('order', 'lease4', NOW + 180_000), false);
   const url = subscription().endpoint, path = `riderPushSubscriptions/${riderPushSubscriptionId(url)}`; docs.set(path, { uid: 'other', endpoint: url });
+  await store.markRequiresResubscribe('rider', url, NOW); assert.equal(docs.get(path).status, undefined);
+  await store.markRequiresResubscribe('other', url, NOW); assert.equal(docs.get(path).status, 'requiresResubscribe');
   await store.deleteSubscription('rider', url); assert.ok(docs.has(path)); await store.deleteSubscription('other', url); assert.ok(!docs.has(path));
 });

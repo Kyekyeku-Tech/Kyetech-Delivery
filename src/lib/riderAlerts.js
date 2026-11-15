@@ -2,7 +2,10 @@ import { ensureServiceWorker } from './registerServiceWorker.js';
 
 const preferences = new Map();
 let subscriptionQueue = Promise.resolve();
+let badgeQueue = Promise.resolve();
 let deviceOwner = '';
+let badgeOwner = '';
+const badgeOwnerKey = 'kyetech:rider-request-badge-owner';
 const preferenceKey = uid => `kyetech:rider-alerts:${uid}`;
 
 export function riderAlertsEnabled(uid) {
@@ -30,9 +33,9 @@ export function vapidKeyBytes(key) {
   return Uint8Array.from(atob(base64 + '='.repeat((4 - base64.length % 4) % 4)), char => char.charCodeAt(0));
 }
 
-async function request(user, method, body, timeout = 15000) {
+async function request(user, method, body, timeout = 15000, query = '') {
   const token = await user.getIdToken();
-  const response = await fetch('/api/rider-alerts', {
+  const response = await fetch('/api/rider-alerts' + query, {
     method, cache: 'no-store', signal: AbortSignal.timeout(timeout),
     headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -51,17 +54,20 @@ function serialize(callback) {
 export function registerRiderPush(user, isCurrent = () => true) {
   return serialize(async () => {
     if (!isCurrent()) return false;
-    const { publicKey } = await request(user, 'GET');
-    if (!isCurrent()) return false;
     const registration = await ensureServiceWorker();
     if (!isCurrent()) return false;
     let subscription = await registration.pushManager.getSubscription();
+    const subscriptionId = subscription ? await pushEndpointId(subscription.endpoint) : '';
+    const { publicKey, requiresResubscribe } = await request(user, 'GET', undefined, 15000, subscriptionId ? '?subscriptionId=' + subscriptionId : '');
+    if (!isCurrent()) return false;
     const key = vapidKeyBytes(publicKey);
     const previousKey = subscription?.options?.applicationServerKey;
-    if (subscription && previousKey && !equalBytes(new Uint8Array(previousKey), key)) {
+    if (subscription && (requiresResubscribe || (previousKey && !equalBytes(new Uint8Array(previousKey), key)))) {
+      try { await request(user, 'DELETE', { endpoint: subscription.endpoint }); } catch { /* Unsubscribe also invalidates the old provider endpoint. */ }
       await subscription.unsubscribe();
       subscription = null;
     }
+    if (!isCurrent()) return false;
     if (!subscription) subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
     if (!isCurrent()) { await subscription.unsubscribe(); return false; }
     await request(user, 'POST', { action: 'subscribe', subscription: subscription.toJSON() });
@@ -76,15 +82,68 @@ export function registerRiderPush(user, isCurrent = () => true) {
   });
 }
 
+async function pushEndpointId(endpoint) {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint));
+  return [...new Uint8Array(hash)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 function equalBytes(left, right) { return left.length === right.length && left.every((value, index) => value === right[index]); }
 
-export function removeRiderPush(user) {
-  return serialize(async () => {
-    if (!user || !('serviceWorker' in navigator) || (deviceOwner && deviceOwner !== user.uid)) return;
+function readBadgeOwner() {
+  try { badgeOwner = localStorage.getItem(badgeOwnerKey) || ''; } catch { /* Keep ownership for this session if storage is blocked. */ }
+  return badgeOwner;
+}
+
+function rememberBadgeOwner(uid) {
+  badgeOwner = uid;
+  try { localStorage.setItem(badgeOwnerKey, uid); } catch { /* Retain the owner for this session. */ }
+}
+
+function sendBadgeMessage(message, isCurrent, uid = '', claim = false) {
+  const operation = badgeQueue.then(async () => {
+    if (!isCurrent() || !('serviceWorker' in navigator)) return false;
     const registration = await navigator.serviceWorker.getRegistration('/');
+    if (!isCurrent() || !registration?.active) return false;
+    const owner = readBadgeOwner();
+    if (uid && claim) {
+      if (owner !== uid) registration.active.postMessage({ type: 'clear-rider-request-badge' });
+      rememberBadgeOwner(uid);
+    } else if (uid && owner && owner !== uid) return false;
+    if (!isCurrent()) return false;
+    if (message) registration.active.postMessage(message);
+    if (uid && !claim) rememberBadgeOwner(uid);
+    return true;
+  }).catch(() => false);
+  badgeQueue = operation;
+  return operation;
+}
+
+export function claimRiderRequestBadge(uid, isCurrent = () => true) {
+  if (!uid) return Promise.resolve(false);
+  return sendBadgeMessage(null, isCurrent, uid, true);
+}
+
+export function syncRiderRequestBadge(orderIds, isCurrent = () => true, uid = '') {
+  const safeIds = [...new Set(orderIds.filter(id => typeof id === 'string' && id.length > 0 && id.length <= 128 && !/[^A-Za-z0-9_-]/.test(id)))].slice(-1000);
+  return sendBadgeMessage({ type: 'sync-rider-request-badge', orderIds: safeIds }, isCurrent, uid, Boolean(uid));
+}
+
+export function clearRiderRequestBadge(isCurrent = () => true, uid = '') {
+  return sendBadgeMessage({ type: 'clear-rider-request-badge' }, isCurrent, uid);
+}
+
+export function removeRiderPush(user, isCurrent) {
+  const valid = isCurrent || (() => true);
+  return serialize(async () => {
+    if (!user || !valid() || !('serviceWorker' in navigator) || (!isCurrent && deviceOwner && deviceOwner !== user.uid)) return;
+    await clearRiderRequestBadge(valid, user.uid);
+    if (!valid()) return;
+    const registration = await navigator.serviceWorker.getRegistration('/');
+    if (!valid()) return;
     const subscription = await registration?.pushManager?.getSubscription();
-    if (!subscription) return;
+    if (!valid() || !subscription) return;
     try { await request(user, 'DELETE', { endpoint: subscription.endpoint }); } catch { /* Continue even if the phone is offline or the account was revoked. */ }
+    if (!valid()) return;
     await subscription.unsubscribe();
     deviceOwner = '';
   });
