@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { usePlatform } from '../context/PlatformContext';
 import { Button, Icon } from '../components/UI';
+import InstallApp from '../components/InstallApp';
 import '../auth.css';
 
 const accountTypes = [
@@ -139,6 +140,7 @@ export default function AuthPage({ recovery = false }) {
               {mode === 'login' ? 'Sign Up' : 'Back to Login'}
             </Button>
           )}
+          <InstallApp />
           <p className="login-footer">Sekondi–Takoradi · Local deliveries</p>
         </div>
         <div className="login-bottom-accent" aria-hidden="true"><img className="login-accent-logo" src="/images/logo.png" alt="" width={32} height={32} decoding="async"/></div>

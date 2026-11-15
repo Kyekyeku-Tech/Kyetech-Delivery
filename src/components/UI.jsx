@@ -3,6 +3,7 @@ import { STATUS_LABELS, formatMoney, timestampMillis } from '../lib/domain';
 import './brand.css';
 
 const paths = {
+  download: <><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></>,
   home: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-8h6v8"/></>,
   store: <><path d="M3 9h18l-2-6H5L3 9Zm1 4v8h16v-8M9 21v-6h6v6"/><path d="M3 9v2a3 3 0 0 0 6 0V9m0 2a3 3 0 0 0 6 0V9m0 2a3 3 0 0 0 6 0V9"/></>,
   bike: <><circle cx="5" cy="17" r="3"/><circle cx="19" cy="17" r="3"/><path d="M8 17h6l3-9h-6l-3 5H5m10-9h3l2 7"/><circle cx="10" cy="5" r="2"/></>,

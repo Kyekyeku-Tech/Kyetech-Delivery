@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePlatform } from '../context/PlatformContext';
 import { Button, Card, Field, Icon, SafeImage, SectionHeading } from '../components/UI';
 import PhotoUpload from '../components/PhotoUpload';
+import InstallApp from '../components/InstallApp';
 import { BIKE_CATALOG } from '../lib/domain';
 
 export default function ProfilePage({ notify }) {
@@ -83,5 +84,6 @@ export default function ProfilePage({ notify }) {
        
      
     </div>
+    <InstallApp />
   </>;
 }

@@ -19,6 +19,14 @@ The app uses `public/images/logo.png` for its branding, with resized PNG copies 
 
 For the branded password-reset email, copy [templates/password-reset.html](./templates/password-reset.html) into Firebase Authentication → Templates → Password reset → Email body. Suggested subject: `Reset your %APP_NAME% password`. The HTML retains Firebase's `%APP_NAME%`, `%EMAIL%` and `%LINK%` placeholders and uses the supplied hosted logo. Saving the file locally does not update the Firebase email template.
 
+## Install on a phone
+
+Open **https://kyetechdelivery.site** on your phone. The **Install app** option appears on the sign-in page and in **Profile**. On Android, Chrome and Edge offer the native installation prompt; if it is unavailable, the option explains how to install from the browser menu. On iPhone or iPad, open the site in Safari and choose **Share → Add to Home Screen → Add**, keeping **Open as Web App** enabled if shown.
+
+The installed app opens in its own window with the KyeTech icon. Deliveries, live tracking and account verification require an internet connection. Opening the app offline shows a reconnect screen. The service worker caches public app files and icons; authenticated API requests and Firebase account/delivery data use the network. App updates wait until existing app windows close so active deliveries and verification are not interrupted.
+
+`npm run build` emits the versioned root service worker automatically. HTTPS hosting is required for installation (localhost is supported for development checks). The manifest, Apple touch icon and deployment headers are included in the repository.
+
 ## Activate Firebase
 
 The existing `.env` names `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` and `NEXT_PUBLIC_FIREBASE_APP_ID` are supported. Equivalent `VITE_FIREBASE_*` names also work. Restart the dev server after editing these values.

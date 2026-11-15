@@ -1,9 +1,44 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createDeliverySmsMiddleware } from './server/sms.mjs';
 import { createFirestoreSmsStore } from './server/firestoreSmsStore.mjs';
 import { createGpsAddressMiddleware } from './server/gpsAddress.mjs';
 import { createAdminOtpMiddleware } from './server/adminOtp.mjs';
+
+function deliveryPwa() {
+  return {
+    name: 'delivery-pwa',
+    apply: 'build',
+    enforce: 'post',
+    generateBundle(_options, bundle) {
+      const publicFiles = [
+        '/offline.html',
+        '/manifest.webmanifest',
+        '/images/pwa/icon-192.png',
+        '/images/pwa/icon-512.png',
+        '/images/pwa/icon-maskable-512.png',
+      ];
+      const builtAssets = Object.keys(bundle)
+        .filter((fileName) => fileName.startsWith('assets/') && /\.(?:js|css|png|jpe?g|svg|webp|gif|woff2?)$/i.test(fileName))
+        .sort();
+      const workerTemplate = readFileSync(new URL('./src/sw.js', import.meta.url), 'utf8');
+      const version = createHash('sha256').update(workerTemplate);
+      for (const fileName of builtAssets) {
+        const asset = bundle[fileName];
+        version.update(fileName).update(asset.type === 'chunk' ? asset.code : asset.source);
+      }
+      for (const pathname of publicFiles) {
+        version.update(pathname).update(readFileSync(new URL(`./public${pathname}`, import.meta.url)));
+      }
+      const source = workerTemplate
+        .replace('__KYETECH_PWA_CACHE_VERSION__', version.digest('hex').slice(0, 16))
+        .replace('/* __KYETECH_PWA_PRECACHE__ */ []', JSON.stringify([...publicFiles, ...builtAssets.map((fileName) => `/${fileName}`)]));
+      this.emitFile({ type: 'asset', fileName: 'sw.js', source });
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -12,7 +47,7 @@ export default defineConfig(({ mode }) => {
     define[`import.meta.env.VITE_FIREBASE_${suffix}`] = JSON.stringify(env[`VITE_FIREBASE_${suffix}`] || env[`NEXT_PUBLIC_FIREBASE_${suffix}`] || '');
   }
   return {
-    plugins: [react(), {
+    plugins: [react(), deliveryPwa(), {
       name: 'delivery-sms-api',
       configureServer(server) {
         server.middlewares.use('/api/admin-otp', createAdminOtpMiddleware({ projectId: env.VITE_FIREBASE_PROJECT_ID || env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, apiKey: env.MOJOAUTH_API_KEY, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }));

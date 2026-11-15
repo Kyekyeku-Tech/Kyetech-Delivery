@@ -19,7 +19,7 @@ const sms = createDeliverySmsMiddleware({
   appUrl: process.env.SMS_APP_URL || 'https://kyetechdelivery.site',
   storeFactory: createFirestoreSmsStore,
 });
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json; charset=utf-8', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://localhost');
@@ -35,6 +35,7 @@ const server = createServer(async (request, response) => {
     const content = await readFile(target);
     response.setHeader('Content-Type', types[extname(target)] || 'application/octet-stream');
     response.setHeader('X-Content-Type-Options', 'nosniff');
+    if (url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest') response.setHeader('Cache-Control', 'no-cache');
     response.end(request.method === 'HEAD' ? undefined : content);
   } catch {
     response.writeHead(404, { 'Content-Type': 'text/plain' });
