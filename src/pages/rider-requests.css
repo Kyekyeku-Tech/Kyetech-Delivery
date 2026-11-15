@@ -1,3 +1,9 @@
+.rider-approval-notice { margin-bottom: 24px; }
+.rider-approval-notice > div { min-width: 0; width: 100%; }
+.rider-approval-contact { margin-top: 12px; }
+.rider-approval-contact a { color: inherit; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.rider-approval-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+.rider-approval-actions .button { min-height: 44px; padding-inline: 12px; }
 .app-shell .rider-request-filters { flex-wrap: wrap; overflow: visible; gap: 6px; margin-bottom: 16px; }
 .app-shell .rider-request-filters .chip { padding-inline: 12px; }
 .modal:has(.rider-request-detail) { display: flex; flex-direction: column; overflow: hidden; max-width: 720px; max-height: 94dvh; }
