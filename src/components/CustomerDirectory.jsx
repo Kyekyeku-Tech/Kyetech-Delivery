@@ -18,9 +18,7 @@ export function StoreDirectory({ stores, onDispatch }) {
   const categories = ['All', ...new Set(stores.map(store => store.category).filter(Boolean))];
   const matches = stores.filter(store => (category === 'All' || store.category === category) && (!openOnly || store.open) && matchesDirectorySearch(search, store.name, store.address, store.category, store.description))
     .sort((a, b) => Number(Boolean(b.open)) - Number(Boolean(a.open)) || a.name.localeCompare(b.name));
-  const openCount = stores.filter(store => store.open).length;
   return <div className="customer-directory store-directory">
-    <div className="directory-hero"><div><span className="directory-eyebrow">SHOP THE KYETECH COMMUNITY</span><h2>Local favourites.<br/>Ready for your doorstep.</h2><p>Find a store, arrange your purchase and let a rider bring it to you.</p><span className="directory-hero-count"><span className="directory-online-dot"/>{openCount} {openCount === 1 ? 'store' : 'stores'} open now</span></div><span className="directory-hero-symbol" aria-hidden="true"><Icon name="store" size={48}/></span></div>
     <div className="directory-tools">
       <DirectorySearch kind="stores" value={search} onChange={setSearch}/>
       <div className="directory-categories" role="group" aria-label="Store categories">{categories.map(value => <button type="button" key={value} className={'directory-chip' + (category === value ? ' directory-chip-active' : '')} aria-pressed={category === value} onClick={() => setCategory(value)}>{value}</button>)}</div>
