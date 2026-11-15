@@ -14,7 +14,7 @@ export function usePlatform(){const snapshot=React.useSyncExternalStore(fn=>{lis
 `;
 function fixture() {
   const store = (id, name, category, address, open = true) => ({ id, ownerId: id, name, category, address, open, imageUrl: '/images/store-placeholder.svg', description: 'Good things for your home, delivered from your local store.', phone: '0241234567', approvalStatus: 'approved', accountStatus: 'active' });
-  const rider = (id, name, city, brand, model, online) => ({ id, name, city, bikeBrand: brand, bikeModel: model, online, phone: '0551234567', photoUrl: '', plate: 'WR 1234-26', approvalStatus: 'approved', accountStatus: 'active' });
+  const rider = (id, name, city, brand, model, online) => ({ id, name, role: 'rider', city, bikeBrand: brand, bikeModel: model, online, phone: '0551234567', photoUrl: id === 'kofi' ? '/images/apple-touch-icon.png' : '', plate: 'WR 1234-26', approvalStatus: 'approved', accountStatus: 'active' });
   return { user: { uid: 'customer-one' }, profile: { id: 'customer-one', name: 'Abena Customer', role: 'customer', phone: '+233241234567', email: 'customer@example.invalid', city: 'Takoradi', accountStatus: 'active' }, authLoading: false, adminLoading: false, dataLoading: false, isAdmin: false, error: '', orders: [], smsMessages: [], stores: [
     store('ada', 'Ada Groceries', 'Groceries', 'Market Circle, Takoradi'), store('cafe', 'Café Essentials', 'Food & drinks', 'Chapel Hill, Takoradi'), store('closed', 'Kojo Corner Store', 'Groceries', 'Kojokrom, near the station', false), store('pharmacy', 'Effia Pharmacy', 'Pharmacy', 'Effia Community Center'),
   ], riders: [rider('kofi', 'Kofi Mensah', 'Takoradi', 'Apsonic', 'AP 125', true), rider('ama', 'Ama Owusu', 'Sekondi', 'Royal', 'Jungle', true), rider('kojo', 'Kojo Asante', 'Kojokrom', 'Boxer', '150', false)] };
@@ -37,8 +37,60 @@ async function makePage(width) {
 async function noOverflow(page, label) {
   const values = await page.evaluate(() => [innerWidth, document.documentElement.scrollWidth]);
   assert.ok(values[1] <= values[0] + 1, label + ' overflows: ' + values);
-  const dialog = await page.getByRole('dialog').evaluate(node => [node.clientWidth, node.scrollWidth]);
-  assert.ok(dialog[1] <= dialog[0] + 1, label + ' dialog overflows: ' + dialog);
+  const dialogs = await page.getByRole('dialog').evaluateAll(nodes => nodes.map(node => [node.clientWidth, node.scrollWidth]));
+  for (const dialog of dialogs) assert.ok(dialog[1] <= dialog[0] + 1, label + ' dialog overflows: ' + dialog);
+}
+const riderProfile = page => page.getByRole('dialog', { name: 'Kofi Mensah Rider profile', exact: true });
+const paintedPhotoSize = photo => photo.evaluate(image => {
+  const bounds = image.getBoundingClientRect();
+  const scale = Math.min(bounds.width / image.naturalWidth, bounds.height / image.naturalHeight);
+  return { width: image.naturalWidth * scale, height: image.naturalHeight * scale };
+});
+async function checkRiderProfile(page, width) {
+  const dialog = riderProfile(page);
+  await dialog.waitFor();
+  assert.equal(await page.locator('.modal-backdrop').count(), 1, 'The rider directory remains mounted behind the profile.');
+  for (const text of ['Kofi Mensah', 'Online now', 'Approved rider', 'Takoradi', '+233551234567', 'Apsonic AP 125']) {
+    await dialog.getByText(text, { exact: true }).waitFor();
+  }
+  assert.match(await dialog.getByRole('region', { name: 'Rider motorcycle', exact: true }).innerText(), /WR 1234-26/);
+  assert.equal(await dialog.getByRole('link', { name: 'Call rider Kofi Mensah', exact: true }).getAttribute('href'), 'tel:+233551234567');
+  const photo = dialog.getByRole('img', { name: 'Kofi Mensah profile photo', exact: true });
+  await photo.evaluate(image => image.decode());
+  const normal = await photo.boundingBox();
+  const normalPicture = await paintedPhotoSize(photo);
+  assert.ok(normal.width >= 230 && normal.height >= 230, 'The profile shows a large loaded portrait at ' + width + 'px.');
+  assert.equal(await photo.getAttribute('src'), '/images/apple-touch-icon.png');
+  await noOverflow(page, width + 'px rider profile');
+  const close = dialog.getByRole('button', { name: 'Close rider profile', exact: true });
+  const call = dialog.getByRole('link', { name: 'Call rider Kofi Mensah', exact: true });
+  await close.focus();
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await call.evaluate(node => node === document.activeElement), true, 'Backward Tab wraps within the nested profile.');
+  await page.keyboard.press('Tab');
+  assert.equal(await close.evaluate(node => node === document.activeElement), true, 'Forward Tab wraps within the nested profile.');
+  for (let index = 0; index < 6; index++) {
+    await page.keyboard.press('Tab');
+    assert.equal(await dialog.evaluate(node => node.contains(document.activeElement)), true, 'Tab must not reach the directory behind the native profile.');
+  }
+  const expand = dialog.getByRole('button', { name: 'Enlarge profile photo for Kofi Mensah', exact: true });
+  await expand.click();
+  const back = dialog.getByRole('button', { name: 'Back to profile', exact: true });
+  await back.waitFor();
+  await dialog.getByRole('img', { name: 'Kofi Mensah profile photo', exact: true }).evaluate(image => image.decode());
+  await page.screenshot({ path: output + '/rider-photo-' + width + '.png', animations: 'disabled' });
+  const enlargedPicture = await paintedPhotoSize(dialog.getByRole('img', { name: 'Kofi Mensah profile photo', exact: true }));
+  assert.ok(enlargedPicture.width > normalPicture.width && enlargedPicture.height > normalPicture.height, 'View photo must enlarge the actual portrait within the image element at ' + width + 'px: ' + JSON.stringify({ normalPicture, enlargedPicture }));
+  if (width === 1366) assert.ok(enlargedPicture.height > normalPicture.height + 100, 'The desktop photo view provides a substantially larger portrait.');
+  await noOverflow(page, width + 'px enlarged rider photo');
+  await page.keyboard.press('Escape');
+  await expand.waitFor();
+  assert.equal(await dialog.count(), 1, 'Escape returns from the photo to the profile.');
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Enlarge profile photo for Kofi Mensah');
+  await expand.click();
+  await back.click();
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Enlarge profile photo for Kofi Mensah');
+  await page.screenshot({ path: output + '/rider-profile-' + width + '.png', animations: 'disabled' });
 }
 const picker = page => page.getByRole('combobox', { name: 'Pickup store (optional)', exact: true });
 const selectedId = page => page.locator('input[type=hidden][name=merchantId]').inputValue();
@@ -74,6 +126,35 @@ try {
       assert.equal(await page.locator('.directory-rider-card').count(), 2);
       await page.getByRole('searchbox', { name: 'Search riders', exact: true }).fill('apsonic takoradi');
       assert.equal(await page.locator('.directory-rider-card').count(), 1);
+      const profileButton = page.getByRole('button', { name: 'View profile for Kofi Mensah', exact: true });
+      await profileButton.click();
+      await checkRiderProfile(page, width);
+      await riderProfile(page).getByRole('button', { name: 'Close rider profile', exact: true }).click();
+      assert.equal(await profileButton.evaluate(node => node === document.activeElement), true, 'Closing the profile restores its directory button focus.');
+      assert.equal(await page.getByRole('searchbox', { name: 'Search riders', exact: true }).inputValue(), 'apsonic takoradi', 'Opening a profile preserves directory search.');
+      assert.equal(await page.getByRole('button', { name: 'Online now', exact: true }).getAttribute('aria-pressed'), 'true', 'Opening a profile preserves the availability filter.');
+      const avatar = page.getByRole('button', { name: 'View photo and profile for Kofi Mensah', exact: true });
+      await avatar.click();
+      await riderProfile(page).waitFor();
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.rider-profile-dialog').count(), 0, 'Escape closes the profile without closing its directory.');
+      assert.equal(await page.locator('.modal-backdrop').count(), 1);
+      assert.equal(await avatar.evaluate(node => node === document.activeElement), true, 'Escape restores the rider photo opener focus.');
+      assert.equal(await page.getByRole('searchbox', { name: 'Search riders', exact: true }).inputValue(), 'apsonic takoradi');
+      if (width === 390) {
+        for (const photoUrl of ['/images/missing-profile-photo.png', 'javascript:alert(1)', '']) {
+          await page.evaluate(photoUrl => __updateDirectory({ riders: __directoryFixture.riders.map(rider => rider.id === 'kofi' ? { ...rider, photoUrl } : rider) }), photoUrl);
+          await avatar.click();
+          const dialog = riderProfile(page);
+          const fallback = dialog.getByRole('img', { name: 'Delivery rider illustration', exact: true });
+          await fallback.waitFor();
+          await fallback.evaluate(image => image.decode());
+          assert.equal(await fallback.getAttribute('src'), '/images/rider.png', 'Unavailable or unsafe profile photos use a loaded illustration.');
+          await dialog.getByText("This rider's profile photo is unavailable.", { exact: true }).waitFor();
+          await page.keyboard.press('Escape');
+        }
+        await page.evaluate(() => __updateDirectory({ riders: __directoryFixture.riders.map(rider => rider.id === 'kofi' ? { ...rider, photoUrl: '/images/apple-touch-icon.png' } : rider) }));
+      }
       await page.getByRole('searchbox', { name: 'Search riders', exact: true }).fill('no matching rider');
       await page.getByText('No riders match this search', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'Show all riders', exact: true }).click();
@@ -82,7 +163,7 @@ try {
       assert.equal(await page.getByLabel('Rider preference', { exact: true }).inputValue(), 'kofi');
       await noOverflow(page, width + 'px rider booking');
       assert.deepEqual(errors, []);
-      console.log('PASS ' + width + 'px directories: search, category/availability filters, phone calls and matching store/rider bookings.');
+      console.log('PASS ' + width + 'px directories: search/filter preservation, large rider profile/photo, public fields/call, nested Escape/Tab/focus and matching store/rider bookings.');
     } finally { await context.close(); }
   }
   const { page, context, errors } = await makePage(320);

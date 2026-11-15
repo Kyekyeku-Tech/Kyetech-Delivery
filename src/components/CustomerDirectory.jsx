@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar, Button, EmptyState, Icon, SafeImage } from './UI';
 import { getBike, normalizeGhanaPhone } from '../lib/domain';
 import { matchesDirectorySearch } from '../lib/directory';
 import StoreCatalog from './StoreCatalog';
+import RiderProfileDialog from './RiderProfileDialog';
 import './customer-directory.css';
 
 function DirectorySearch({ kind, value, onChange }) {
@@ -38,7 +39,9 @@ export function StoreDirectory({ stores, onDispatch }) {
 }
 
 export function RiderDirectory({ riders, onDispatch }) {
-  const [search, setSearch] = useState(''), [onlineOnly, setOnlineOnly] = useState(false);
+  const [search, setSearch] = useState(''), [onlineOnly, setOnlineOnly] = useState(false), [profileId, setProfileId] = useState('');
+  const selectedRider = riders.find(rider => rider.id === profileId);
+  useEffect(() => { if (profileId && !selectedRider) setProfileId(''); }, [profileId, selectedRider]);
   const online = riders.filter(rider => rider.online).length;
   const matches = riders.filter(rider => (!onlineOnly || rider.online) && matchesDirectorySearch(search, rider.name, rider.city, rider.bikeBrand, rider.bikeModel))
     .sort((a, b) => Number(Boolean(b.online)) - Number(Boolean(a.online)) || a.name.localeCompare(b.name));
@@ -47,13 +50,15 @@ export function RiderDirectory({ riders, onDispatch }) {
     <div className="directory-grid directory-rider-grid">{matches.map(rider => {
       const phone = normalizeGhanaPhone(rider.phone), bike = getBike(rider.bikeBrand, rider.bikeModel);
       return <article className="directory-rider-card" key={rider.id} aria-label={rider.name}>
-        <div className="directory-rider-heading"><Avatar name={rider.name} src={rider.photoUrl} size={58}/><div><span className={'directory-availability' + (!rider.online ? ' availability-offline' : '')}><span/>{rider.online ? 'Online now' : 'Offline'}</span><h3>{rider.name}</h3><p><Icon name="map-pin" size={15}/>{rider.city}</p></div></div>
+        <div className="directory-rider-heading"><button type="button" className="directory-rider-profile-photo" aria-label={'View photo and profile for ' + rider.name} onClick={() => setProfileId(rider.id)}><Avatar name={rider.name} src={rider.photoUrl} size={58}/></button><div><span className={'directory-availability' + (!rider.online ? ' availability-offline' : '')}><span/>{rider.online ? 'Online now' : 'Offline'}</span><h3>{rider.name}</h3><p><Icon name="map-pin" size={15}/>{rider.city}</p></div></div>
         <div className="directory-rider-bike"><div><span>Your ride</span><strong>{[rider.bikeBrand, rider.bikeModel].filter(Boolean).join(' ') || 'Motorcycle'}</strong>{rider.plate && <small>{rider.plate}</small>}</div><SafeImage src={bike.image} alt={rider.bikeBrand ? rider.bikeBrand + ' motorcycle' : 'Motorcycle'} loading="lazy"/></div>
+        <Button variant="secondary" className="directory-view-profile" aria-label={'View profile for ' + rider.name} onClick={() => setProfileId(rider.id)}><Icon name="user" size={18}/>View profile</Button>
         <div className="directory-card-actions">{phone && <a className="button button-secondary directory-call" href={'tel:' + phone} aria-label={'Call rider ' + rider.name}><Icon name="phone" size={18}/>Call rider</a>}<Button disabled={!rider.online} onClick={() => onDispatch({ preferredRiderId: rider.id })}><Icon name="send" size={18}/>Request rider</Button></div>
         <p className="directory-rider-note">{rider.online ? 'Ready to receive your delivery request.' : 'You can call now. Requests open when this rider is online.'}</p>
       </article>;
     })}</div>
     {!matches.length && <EmptyState icon="bike" title={riders.length ? 'No riders match this search' : 'Your next rider is on the way'} description={riders.length ? 'Try another name, area or motorcycle, or browse all riders.' : 'Riders will appear here as they join. You can send a request for the next available rider.'} action={riders.length ? <Button variant="secondary" onClick={() => { setSearch(''); setOnlineOnly(false); }}>Show all riders</Button> : <Button onClick={() => onDispatch({})}>Send request</Button>}/>}
     <div className="directory-tip"><Icon name="phone" size={20}/><p><strong>Say hello before the pickup.</strong>Use Call rider to explain your package and destination, then send your request.</p></div>
+    {selectedRider && <RiderProfileDialog rider={selectedRider} onClose={() => setProfileId('')}/>}
   </div>;
 }

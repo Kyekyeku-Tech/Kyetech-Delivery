@@ -1,0 +1,62 @@
+html:has(.rider-profile-dialog[open]) { overflow: hidden; }
+.rider-profile-dialog { width: min(760px, calc(100vw - 40px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid #d7e5ec; border-radius: 24px; background: #fff; color: #294255; box-shadow: 0 24px 90px #17334840; overflow: auto; }
+.rider-profile-dialog::backdrop { background: #172d4666; backdrop-filter: blur(4px); }
+.rider-profile-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 16px; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #e5edf2; background: #fff; }
+.rider-profile-header>div { min-width: 0; }
+.rider-profile-header h2 { margin: 0; font-size: 21px; line-height: 1.4; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.rider-profile-header p { margin: 4px 0 0; font-size: 12px; color: #6b8291; }
+.rider-profile-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border: 0; border-radius: 50%; background: #edf3f6; color: #4a6577; }
+.rider-profile-close:focus-visible, .rider-profile-photo-button:focus-visible, .rider-profile-dialog .button:focus-visible, .directory-rider-profile-photo:focus-visible { outline: 3px solid #247f9b; outline-offset: 3px; }
+.rider-profile-body { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); align-items: start; gap: 24px; padding: 24px; }
+.rider-profile-photo-panel { min-width: 0; }
+.rider-profile-photo-button { display: block; position: relative; width: 100%; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid #d6e6ec; border-radius: 20px; background: #f1f8fa; cursor: zoom-in; }
+.rider-profile-photo-button>img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.rider-profile-photo-button>span { position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 9px; background: #fffffff0; padding: 8px 10px; color: #2b637a; font-size: 12px; font-weight: 650; box-shadow: 0 2px 10px #264a6710; }
+.rider-profile-photo-note { color: #718392; font-size: 11px; line-height: 1.65; margin: 10px 0 0; }
+.rider-profile-details { min-width: 0; }
+.rider-profile-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.rider-profile-availability, .rider-profile-approved { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid #c9e4d5; border-radius: 20px; background: #edf9f2; color: #21744f; font-size: 11px; line-height: 1.5; font-weight: 600; }
+.rider-profile-availability>span { width: 7px; height: 7px; border-radius: 50%; background: #299667; }
+.rider-profile-offline { border-color: #dbe3e9; background: #f2f5f7; color: #728191; }
+.rider-profile-offline>span { background: #94a1ad; }
+.rider-profile-approved { border-color: #d5e5ee; background: #f1f7fb; color: #356e8c; }
+.rider-profile-info { display: grid; gap: 16px; margin: 22px 0; }
+.rider-profile-info>div { min-width: 0; }
+.rider-profile-info dt { margin: 0 0 5px; color: #748b9b; font-size: 11px; }
+.rider-profile-info dd { margin: 0; font-size: 15px; line-height: 1.5; font-weight: 650; overflow-wrap: anywhere; }
+.rider-profile-motorcycle { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid #d8e8f0; border-radius: 15px; background: #f0f7fc; }
+.rider-profile-motorcycle>div { flex: 1; min-width: 0; }
+.rider-profile-motorcycle h3 { color: #6a8598; font-size: 11px; font-weight: 500; margin: 0 0 6px; }
+.rider-profile-motorcycle strong { display: block; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.rider-profile-motorcycle p { margin: 12px 0 0; color: #41637a; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.rider-profile-motorcycle p>span { display: block; color: #718a9b; font-size: 10px; }
+.rider-profile-motorcycle img { width: 110px; height: 85px; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply; }
+.rider-profile-call.button { display: inline-flex; width: 100%; min-height: 46px; justify-content: center; gap: 8px; margin-top: 18px; padding: 11px 16px; border: 1px solid #23845f; border-radius: 12px; background: #23845f; color: #fff; font-size: 13px; font-weight: 650; }
+.rider-profile-photo-expanded { display: block; }
+.rider-profile-photo-back { min-height: 44px; gap: 7px; font-size: 12px; }
+.rider-profile-expanded-image { height: min(58dvh, 520px); margin-top: 16px; border: 1px solid #d8e6ee; border-radius: 18px; background: #f2f8fa; }
+.rider-profile-expanded-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.directory-rider-profile-photo { display: block; width: 58px; height: 58px; padding: 0; border: 0; border-radius: 50%; background: transparent; flex-shrink: 0; }
+.directory-rider-profile-photo .avatar { border: 3px solid #fff; box-shadow: 0 0 0 2px var(--card-border); color: var(--card-accent); background: var(--card-tint); }
+.directory-view-profile.button { width: 100%; min-height: 43px; margin: -6px 0 14px; font-size: 12px; gap: 7px; border-radius: 11px; }
+.live-rider-profile-action.button { align-self: flex-start; min-height: 42px; margin-top: 8px; padding: 8px 12px; font-size: 12px; gap: 7px; }
+@media (max-width: 599px) {
+  .rider-profile-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 20px; }
+  .rider-profile-header { padding: 16px 18px; }
+  .rider-profile-header h2 { font-size: 19px; }
+  .rider-profile-body { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 18px; }
+  .rider-profile-photo-panel { width: min(100%, 320px); justify-self: center; }
+  .rider-profile-photo-note { text-align: center; }
+  .rider-profile-info { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-block: 18px; }
+  .rider-profile-motorcycle img { width: 105px; height: 78px; }
+  .rider-profile-photo-expanded { display: block; padding: 18px 0 0; }
+  .rider-profile-photo-expanded .rider-profile-photo-back { margin-inline: 18px; }
+  .rider-profile-photo-expanded .rider-profile-expanded-image { height: auto; border-width: 1px 0 0; border-radius: 0; }
+  .rider-profile-photo-expanded .rider-profile-expanded-image img { height: auto; }
+  .rider-profile-photo-expanded .rider-profile-photo-note { margin: 0; padding: 12px 18px; }
+}
+@media (max-width: 359px) {
+  .rider-profile-info { grid-template-columns: minmax(0, 1fr); }
+  .rider-profile-motorcycle { padding: 13px; gap: 9px; }
+  .rider-profile-motorcycle img { width: 86px; height: 68px; }
+}

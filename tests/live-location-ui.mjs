@@ -1,6 +1,6 @@
 // Exercise the real rider-sharing hook and customer map with local service doubles.
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { chromium } from '../.verification/login-tools/node_modules/playwright/index.mjs';
 const origin = 'http://localhost:5173', output = '.verification/live-location';
 await mkdir(output, { recursive: true });
@@ -39,7 +39,8 @@ function fixture(role = 'rider') {
   const profile = { id: role + '-one', name: role === 'rider' ? 'Kofi Rider' : 'Abena Customer', role, email: 'account@example.invalid', phone: '+233241234567', city: 'Takoradi', accountStatus: 'active', approvalStatus: 'approved', online: true, bikeBrand: 'Apsonic', bikeModel: 'AP 125', plate: 'WR-100' };
   const order = { id: 'active-trip', status: 'accepted', creatorId: 'customer-one', creatorRole: 'customer', customerName: 'Abena Customer', customerPhone: '+233241234567', recipientName: 'Kwame', recipientPhone: '+233551234567', riderId: 'rider-one', riderName: 'Kofi Rider', pickup: 'Market Circle, Takoradi', dropoff: 'Effia, Takoradi', packageDescription: 'Groceries', fee: 25, createdAt: Date.now() };
   const orders = role === 'rider' ? [order, { ...order, id: 'second-trip', status: 'picked_up', customerName: 'Second Customer' }, { ...order, id: 'pending-trip', status: 'pending', riderId: null, riderName: '' }, { ...order, id: 'finished-trip', status: 'delivered' }] : [order];
-  return { user: { uid: profile.id }, profile, authLoading: false, adminLoading: false, authActionPending: false, dataLoading: false, isAdmin: false, orders, riders: [], stores: [], smsMessages: [], liveLocations: {}, error: '' };
+  const rider = { id: 'rider-one', name: 'Kofi Rider', role: 'rider', phone: '0551234567', city: 'Takoradi', accountStatus: 'active', approvalStatus: 'approved', online: true, bikeBrand: 'Apsonic', bikeModel: 'AP 125', plate: 'WR-100', photoUrl: '/images/favicon-192.png' };
+  return { user: { uid: profile.id }, profile, authLoading: false, adminLoading: false, authActionPending: false, dataLoading: false, isAdmin: false, orders, riders: role === 'customer' ? [{ ...rider, id: 'other-rider', name: 'Other Rider', city: 'Sekondi', photoUrl: '/images/royal_logo.png' }, rider] : [], stores: [], smsMessages: [], liveLocations: {}, error: '' };
 }
 async function makePage(role, width = 390) {
   const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
@@ -79,7 +80,47 @@ async function makePage(role, width = 390) {
   return {page,context,errors,geocoder};
 }
 async function noOverflow(page) { assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)); }
+async function visibleMarker(page,label,{loading=false}={}) {
+  if(!loading)await page.waitForFunction(()=>{const image=document.querySelector('.live-rider-marker img');return image?.complete&&image.naturalWidth>0&&getComputedStyle(image).opacity==='1';});
+  const marker=page.locator('.live-rider-marker');
+  const geometry=await marker.evaluate(node=>{
+    const outer=node.getBoundingClientRect(),image=node.querySelector('img'),inner=image.getBoundingClientRect();
+    return {width:outer.width,height:outer.height,imageWidth:inner.width,imageHeight:inner.height,contained:inner.x>=outer.x&&inner.y>=outer.y&&inner.right<=outer.right&&inner.bottom<=outer.bottom,opacity:getComputedStyle(image).opacity,background:getComputedStyle(node).backgroundImage};
+  });
+  assert.equal(geometry.width,44,label+' marker width');assert.equal(geometry.height,44,label+' marker height');
+  assert.equal(geometry.imageWidth,38,label+' rendered image width');assert.equal(geometry.imageHeight,38,label+' rendered image height');
+  assert.equal(geometry.contained,true,label+' image must fit inside the visible marker');
+  assert.equal(geometry.opacity,loading?'0':'1',label+' image opacity');
+  if(loading)assert.notEqual(geometry.background,'none',label+' loading placeholder');
+  const screenshot=await marker.screenshot({path:output+'/marker-'+label+'.png',animations:'disabled'});
+  const painted=await page.evaluate(async encoded=>{
+    const bytes=Uint8Array.from(atob(encoded),character=>character.charCodeAt(0)),bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
+    const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+    const context=canvas.getContext('2d');context.drawImage(bitmap,0,0);bitmap.close();
+    const data=context.getImageData(0,0,canvas.width,canvas.height).data;let count=0;
+    // Inspect the centre, excluding the green border and pale background.
+    for(let y=10;y<34;y++)for(let x=10;x<34;x++){const index=(y*canvas.width+x)*4;if(data[index+3]>200&&(data[index]<200||data[index+1]<170||data[index+2]<120))count++;}
+    return count;
+  },screenshot.toString('base64'));
+  assert.ok(painted>20,label+' marker centre must contain a visible image or loading illustration, not an empty circle ('+painted+' painted pixels).');
+}
 async function closeContext(context) { await context.unrouteAll({behavior:'ignoreErrors'}); await context.close(); }
+async function checkAssignedProfile(page, width) {
+  const dialog = page.getByRole('dialog', { name: 'Kofi Rider Rider profile', exact: true });
+  await dialog.waitFor();
+  assert.equal(await page.getByRole('dialog', { name: 'Other Rider Rider profile', exact: true }).count(), 0, 'Live tracking opens the assigned rider, even when another rider is first in the directory.');
+  for (const text of ['Kofi Rider', 'Online now', 'Approved rider', 'Takoradi', '+233551234567', 'Apsonic AP 125']) await dialog.getByText(text, { exact: true }).waitFor();
+  assert.match(await dialog.getByRole('region', { name: 'Rider motorcycle', exact: true }).innerText(), /WR-100/);
+  assert.equal(await dialog.getByRole('link', { name: 'Call rider Kofi Rider', exact: true }).getAttribute('href'), 'tel:+233551234567');
+  const photo = dialog.getByRole('img', { name: 'Kofi Rider profile photo', exact: true });
+  await photo.evaluate(image => image.decode());
+  const geometry = await photo.boundingBox();
+  assert.ok(geometry.width >= 230 && geometry.height >= 230, width + 'px live tracking profile displays a large portrait.');
+  assert.equal(await photo.getAttribute('src'), '/images/favicon-192.png');
+  await noOverflow(page);
+  await page.screenshot({ path: output + '/assigned-rider-profile-' + width + '.png', animations: 'disabled' });
+  return dialog;
+}
 function locationPanel(page, id) { return page.getByRole('region', { name: 'Live GPS for delivery KYE-' + id.slice(-6).toUpperCase(), exact: true }); }
 async function activeRequests(page, width = 390) {
   await page.getByRole('navigation',{name:width<720?'Mobile navigation':'Main navigation',exact:true}).getByRole('button',{name:/\bRequests\b/}).click();
@@ -247,7 +288,6 @@ try {
   for(const width of [1366,390,320]) {
     const {page,context,errors}=await makePage('customer',width);
     try {
-      await page.evaluate(()=>__update({riders:[{id:'other-rider',name:'Other Rider',photoUrl:'/images/royal_logo.png'},{id:'rider-one',name:'Kofi Rider',photoUrl:'/images/favicon-192.png'}]}));
       await page.evaluate(()=>__update({liveLocations:{'active-trip':{riderId:'rider-one',sharing:true,latitude:4.8917,longitude:-1.7554,accuracy:20,address:'Takoradi',updatedAt:Date.now()}}}));
       await page.getByText('Your rider is sharing live',{exact:true}).waitFor();
       assert.equal(await page.locator('.live-rider-marker').count(),1);
@@ -257,10 +297,28 @@ try {
       assert.equal(await markerPhoto.getAttribute('src'),'/images/favicon-192.png','The marker uses the assigned rider profile photo.');
       await page.waitForFunction(()=>{const photo=document.querySelector('.live-rider-marker img');return photo.complete&&photo.naturalWidth>0;});
       assert.equal(await markerPhoto.getAttribute('class'),'live-rider-photo');
+      await visibleMarker(page,'photo-'+width);
+      const profileAction = page.getByRole('button', { name: 'View rider profile', exact: true });
+      await profileAction.click();
+      const dialog = await checkAssignedProfile(page, width);
+      await dialog.getByRole('button', { name: 'Close rider profile', exact: true }).click();
+      assert.equal(await profileAction.evaluate(node => node === document.activeElement), true, 'Closing the assigned rider profile restores the tracking button focus.');
+      const marker = page.locator('.live-rider-marker');
+      await marker.focus();
+      await marker.click();
+      await dialog.waitFor();
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.rider-profile-dialog').count(), 0);
+      assert.equal(await marker.evaluate(node => node === document.activeElement), true, 'Closing a profile opened by its map marker restores marker focus.');
+      await marker.press('Space');
+      await dialog.waitFor();
+      await page.keyboard.press('Escape');
+      assert.equal(await marker.evaluate(node => node === document.activeElement), true, 'The marker supports keyboard profile opening and focus restoration.');
       const mapId=await page.locator('.live-rider-map').evaluate(node=>node._leaflet_id);
-      await page.evaluate(()=>__update({riders:[{id:'rider-one',name:'Kofi Rider',photoUrl:'/images/apple-touch-icon.png'}]}));
+      await page.evaluate(()=>__update({riders:__fixture.riders.map(rider=>rider.id==='rider-one'?{...rider,photoUrl:'/images/apple-touch-icon.png'}:rider)}));
       assert.equal(await markerPhoto.getAttribute('src'),'/images/apple-touch-icon.png','A changed rider photo updates the current marker.');
       assert.equal(await page.locator('.live-rider-map').evaluate(node=>node._leaflet_id),mapId,'Changing a rider photo must preserve the map instance.');
+      await visibleMarker(page,'changed-photo-'+width);
       const card=page.locator('.customer-live-location');
       await card.getByText('Takoradi',{exact:true}).waitFor();
       await card.getByText('Current town or area',{exact:true}).waitFor();
@@ -275,6 +333,14 @@ try {
       assert.doesNotMatch(await card.innerText(), /4\.960|-1\.710|Accuracy/);
       assert.equal(new URL(await page.getByRole('link',{name:'Open map',exact:true}).getAttribute('href')).searchParams.get('query'),'4.960000, -1.710000');
       if(width===390){
+        let resolvePhoto;
+        const delayedPhoto=new Promise(resolve=>{resolvePhoto=resolve;});
+        await context.route('**/images/delayed-rider-photo.png',route=>{resolvePhoto(route);});
+        await page.evaluate(()=>__update({riders:__fixture.riders.map(rider=>rider.id==='rider-one'?{...rider,photoUrl:'/images/delayed-rider-photo.png'}:rider)}));
+        const photoRoute=await delayedPhoto;
+        await visibleMarker(page,'loading-photo-'+width,{loading:true});
+        await photoRoute.fulfill({status:200,contentType:'image/png',body:await readFile(new URL('../public/images/favicon-192.png',import.meta.url))});
+        await visibleMarker(page,'loaded-delayed-photo-'+width);
         await page.evaluate(()=>__update({liveLocations:{'active-trip':{...__fixture.liveLocations['active-trip'],address:'12 Market Circle, Effiakuma, Takoradi, Western Region, Ghana'}}}));
         await card.getByText('Takoradi',{exact:true}).waitFor();
         assert.doesNotMatch(await card.innerText(), /12 Market Circle|Western Region|Ghana/,'An older street address displays its available town.');
@@ -285,14 +351,21 @@ try {
         await card.getByText('Western Region',{exact:true}).waitFor();
         assert.equal(await card.getByText('Takoradi',{exact:true}).count(),0,'A missing town must not be inferred from the service area.');
         await page.evaluate(()=>__update({liveLocations:{'active-trip':{...__fixture.liveLocations['active-trip'],address:'Sekondi'}}}));
-        await page.evaluate(()=>__update({riders:[{id:'rider-one',photoUrl:'javascript:alert(1)'}]}));
+        await page.evaluate(()=>__update({riders:__fixture.riders.map(rider=>rider.id==='rider-one'?{...rider,photoUrl:'javascript:alert(1)'}:rider)}));
         assert.equal(await markerPhoto.getAttribute('src'),'/images/rider.png','Unsafe photo URLs use the rider illustration.');
         assert.equal(await markerPhoto.getAttribute('class'),'live-rider-illustration');
-        await page.evaluate(()=>__update({riders:[{id:'rider-one',photoUrl:'/images/missing-rider-photo.png'}]}));
+        await visibleMarker(page,'unsafe-photo-fallback-'+width);
+        await page.evaluate(()=>__update({riders:__fixture.riders.map(rider=>rider.id==='rider-one'?{...rider,photoUrl:'/images/missing-rider-photo.png'}:rider)}));
         await page.waitForFunction(()=>document.querySelector('.live-rider-marker img')?.getAttribute('src')==='/images/rider.png');
         assert.equal(await markerPhoto.getAttribute('class'),'live-rider-illustration','A broken profile image falls back safely.');
-        await page.evaluate(()=>__update({riders:[]}));
+        await visibleMarker(page,'broken-photo-fallback-'+width);
+        await profileAction.click();
+        await dialog.waitFor();
+        await page.evaluate(()=>__update({riders:__fixture.riders.filter(rider=>rider.id!=='rider-one')}));
+        await dialog.waitFor({state:'hidden'});
+        assert.equal(await profileAction.count(),0,'An unavailable assigned rider closes the profile and removes its action.');
         assert.equal(await markerPhoto.getAttribute('src'),'/images/rider.png','A rider without a profile photo gets the rider illustration.');
+        await visibleMarker(page,'missing-photo-fallback-'+width);
         assert.match(await page.locator('.live-rider-marker').ariaSnapshot(), /Kofi Rider location/);
       }
       await noOverflow(page);
@@ -304,7 +377,7 @@ try {
       await page.evaluate(()=>__update({liveLocations:{}}));
       assert.equal(await page.locator('.live-rider-map').count(),0);
       assert.deepEqual(errors,[]);
-      console.log('PASS '+width+'px enlarged rider map, moving town, exact external pin, stale update and stopped-sharing display.');
+      console.log('PASS '+width+'px rider map/profile: assigned portrait/public fields/call, button and keyboard marker focus, moving town, exact pin, stale update and stopped-sharing display.');
     } finally {await closeContext(context);}
   }
 } finally {await browser.close();}
