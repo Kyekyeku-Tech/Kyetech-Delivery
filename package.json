@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js",
     "start": "node server/index.mjs",
-    "check:sms": "node scripts/check-sms.mjs --live"
+    "check:sms": "node scripts/check-sms.mjs --live",
+    "check:deployment": "node scripts/check-deployment.mjs"
   },
   "dependencies": {
     "@firebase/app": "^0.16.2",

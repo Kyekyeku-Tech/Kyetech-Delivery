@@ -4,7 +4,7 @@ A simple React.js delivery platform for Sekondi–Takoradi, using Firebase Authe
 
 ## Run locally
 
-Use Node.js 22.12+ or 24+ (also select Node.js 22 or newer in Vercel).
+Use Node.js 24. The project's [package.json](./package.json) pins Vercel builds and API functions to `24.x`, matching the tested local runtime.
 
 ```sh
 npm install
@@ -43,6 +43,20 @@ Configure these server-only variables in local `.env` and Vercel:
 In `.env`, wrap the complete JSON in single quotes so multiline content is parsed correctly. In Vercel's environment-variable value field, paste the JSON itself, without the variable name or outer `.env` quotes. Keep the file and credential values private.
 
 The `/api/admin-otp` route runs in Vite, the standalone Node server and Vercel. Set both Vercel environment variables, redeploy the application and API, then publish the current [firestore.rules](./firestore.rules) and sign in again. Publishing the rules without the configured OTP route will lock administrator operations until verification is available. The Firebase rules enforce the grant independently of the page, and administrator delivery SMS requires the same verified session.
+
+For the production domain, add `kyetechdelivery.site` (and `www.kyetechdelivery.site` if used) to Firebase Authentication → Settings → Authorized domains. Set `MOJOAUTH_API_KEY`, `FIREBASE_SERVICE_ACCOUNT_JSON` and your Firebase web project configuration in Vercel's **Production** environment, then redeploy. Local environment variables do not automatically become Vercel runtime variables.
+
+If Vercel returns `FUNCTION_INVOCATION_FAILED` for the OTP route, the API crashed before it could return its normal JSON error. Open the project's runtime **Logs** and filter by `/api/admin-otp`; this is a server deployment failure. [vercel.json](./vercel.json) explicitly includes the server modules and their shared helpers in all three API functions. Deploy the current repository from its root using the Vite framework preset, and confirm Node.js **24.x** under Settings → Build and Deployment.
+
+After redeploying, run the startup checks from [scripts/check-deployment.mjs](./scripts/check-deployment.mjs):
+
+```sh
+npm run check:deployment
+# Or check the original Vercel deployment address:
+npm run check:deployment -- https://YOUR_PROJECT.vercel.app
+```
+
+These checks verify that OTP, GPS and SMS functions load and return JSON while rejecting unauthenticated or invalid requests. They do not send email or SMS or validate the provider credentials. Once the checks pass, sign in as an enabled administrator and verify receipt of the email code. The visual fixture in [.verification/admin-otp/check.mjs](./.verification/admin-otp/check.mjs) replaces the OTP provider and blocks live API requests, so it cannot verify production connectivity or email delivery.
 
 ## Delivery operation
 

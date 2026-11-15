@@ -25,7 +25,10 @@ export async function requestAdminOtp(token, body, fetcher = fetch) {
     });
   } catch { throw new Error('Administrator verification could not connect. Check your connection and try again.'); }
   let result;
-  try { result = await response.json(); } catch { throw new Error('Administrator verification could not connect. Please try again.'); }
+  try { result = await response.json(); } catch {
+    if (response.status >= 500) throw new Error('Administrator verification is temporarily unavailable. Please try again later.');
+    throw new Error('Administrator verification is unavailable on this website. Please contact support.');
+  }
   if (!response.ok) throw new Error(typeof result?.message === 'string' && result.message.length <= 500 ? result.message : 'Administrator verification failed. Please try again.');
   return result;
 }

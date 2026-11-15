@@ -34,3 +34,12 @@ test('OTP transport failures expose useful bounded errors and never return faile
   await assert.rejects(requestAdminOtp('fixture', { action: 'verify' }, async () => ({ ok: false, json: async () => ({ message: 'The code expired. Request a new code.' }) })), /code expired/);
   await assert.rejects(requestAdminOtp('fixture', { action: 'send' }, async () => ({ ok: false, json: async () => ({ message: 'x'.repeat(501) }) })), /verification failed/);
 });
+
+test('Vercel function crashes and missing API routes are reported as service failures without exposing the response body', async () => {
+  const crashed = new Response('FUNCTION_INVOCATION_FAILED private-server-detail', { status: 500 });
+  await assert.rejects(requestAdminOtp('fixture', { action: 'send' }, async () => crashed), { message: 'Administrator verification is temporarily unavailable. Please try again later.' });
+  for (const status of [200, 404]) {
+    const missing = new Response('<html>Website fallback</html>', { status });
+    await assert.rejects(requestAdminOtp('fixture', { action: 'send' }, async () => missing), { message: 'Administrator verification is unavailable on this website. Please contact support.' });
+  }
+});
