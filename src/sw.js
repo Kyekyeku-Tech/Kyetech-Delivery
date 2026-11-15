@@ -64,3 +64,45 @@ self.addEventListener('fetch', (event) => {
     })());
   }
 });
+
+function riderRequestId(data) {
+  return data && typeof data === 'object' && !Array.isArray(data)
+    && data.type === 'new-rider-request' && typeof data.orderId === 'string'
+    && data.orderId.length > 0 && data.orderId.length <= 128
+    && !/[^A-Za-z0-9_-]/.test(data.orderId) ? data.orderId : '';
+}
+
+self.addEventListener('push', (event) => {
+  let payload;
+  try { payload = event.data?.json(); } catch { return; }
+  const orderId = riderRequestId(payload);
+  if (!orderId) return;
+  event.waitUntil(self.registration.showNotification('New delivery request', {
+    body: 'A new delivery request is waiting. Open KyeTech Delivery to review it.',
+    icon: '/images/pwa/icon-192.png',
+    badge: '/images/pwa/icon-192.png',
+    tag: 'rider-request-' + orderId,
+    vibrate: [200, 100, 200],
+    data: { type: 'new-rider-request', orderId },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const orderId = riderRequestId(event.notification.data);
+  if (!orderId) return;
+  event.waitUntil((async () => {
+    let windows = [];
+    try { windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true }); } catch { /* Open the app if no window can be found. */ }
+    for (const client of windows) {
+      try {
+        const url = new URL(client.url);
+        if (url.origin !== self.location.origin || !['/', '/index.html'].includes(url.pathname)) continue;
+        await client.focus();
+        client.postMessage({ type: 'open-rider-requests', orderId });
+        return;
+      } catch { /* A window may close between discovery and focus. */ }
+    }
+    await self.clients.openWindow('/?rider-request=' + encodeURIComponent(orderId));
+  })());
+});

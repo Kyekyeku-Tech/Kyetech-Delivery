@@ -5,6 +5,7 @@ import { auth, db, firebaseConfigError, firebaseInitializationError, friendlyFir
 import { BIKE_CATALOG, ROLES, nextOrderStatus, normalizeDocument, requirePhone, requireText, timestampMillis, validateFee, validateImageUrl } from '../lib/domain';
 import { ACCOUNT_STATUSES, APPROVAL_STATUSES, FEEDBACK_STATUSES, adminOrderChange, cleanAdminNote, cleanReviewNote, isActiveAccount, isApprovedRider, moderationFields } from '../lib/admin';
 import { notifyDeliverySms } from '../lib/sms';
+import { notifyRiderOrder, removeRiderPush } from '../lib/riderAlerts';
 import { cleanCoordinates } from '../lib/location';
 import useRiderLocationSharing from '../lib/useRiderLocationSharing';
 import useStoreTeam from '../lib/useStoreTeam';
@@ -118,6 +119,7 @@ export function PlatformProvider({ children }) {
   const [adminPermission, setAdminPermission] = useState(null);
   const [adminLoading, setAdminLoading] = useState(Boolean(auth));
   const [loadedScope, setLoadedScope] = useState('');
+  const [riderRequestStream, setRiderRequestStream] = useState({ scope: '', ready: false });
   const [readFailures, setReadFailures] = useState({ scope: '', errors: {} });
   const collectionRetry = useRef(null), currentSubscriptionScope = useRef('');
   const registering = useRef(false);
@@ -209,6 +211,7 @@ export function PlatformProvider({ children }) {
     setStores([]);
     setRiders([]);
     setOrders([]);
+    setRiderRequestStream({ scope: subscriptionScope, ready: false });
     setFeedback([]);
     setSmsMessages([]);
     setRecipientReviews([]);
@@ -229,7 +232,7 @@ export function PlatformProvider({ children }) {
     const retrying = new Set();
     const ready = new Set();
     const setters = { stores: setStores, riders: setRiders, orders: setOrders, feedback: setFeedback, users: setAdminUsers, admins: setAdminAdmins, adminAudit: setAdminAudit, deliverySms: setSmsMessages, deliveryReviews: setRecipientReviews };
-    const listen = (category, source, single = false) => sources.push({ category, source, single, key: `${category}-${sources.length}` });
+    const listen = (category, source, single = false, riderRequests = false) => sources.push({ category, source, single, riderRequests, key: `${category}-${sources.length}` });
     if (isAdmin) {
       for (const category of Object.keys(setters)) if (!['deliverySms','deliveryReviews'].includes(category)) listen(category, collection(db, category));
     } else {
@@ -244,7 +247,7 @@ export function PlatformProvider({ children }) {
       if (profile.role === 'rider') listen('deliveryReviews', query(collection(db, 'deliveryReviews'), where('riderId', '==', user.uid)));
       if (profile.role === 'merchant' && storeTeam.storeId !== user.uid) listen('orders', query(collection(db, 'orders'), where('creatorId', '==', storeTeam.storeId), where('creatorRole', '==', 'merchant'), where('merchantId', '==', storeTeam.storeId)));
       else listen('orders', query(collection(db, 'orders'), where(profile.role === 'rider' ? 'riderId' : 'creatorId', '==', user.uid)));
-      if (isApprovedRider(profile)) listen('orders', query(collection(db, 'orders'), where('status', '==', 'pending')));
+      if (isApprovedRider(profile)) listen('orders', query(collection(db, 'orders'), where('status', '==', 'pending')), false, true);
     }
     setCollectionsLoading(true);
     const markReady = key => {
@@ -259,12 +262,13 @@ export function PlatformProvider({ children }) {
       setters[category](data);
     };
     const publishFailures = () => setReadFailures({ scope: subscriptionScope, errors: { ...failures } });
-    function attach({ category, source, single, key }) {
+    function attach({ category, source, single, riderRequests, key }) {
       const attempt = attempts[key] = (attempts[key] || 0) + 1;
       const currentAttempt = () => isCurrent() && attempts[key] === attempt;
       function failed(cause) {
         if (!currentAttempt()) return;
         retrying.delete(key);
+        if (riderRequests) setRiderRequestStream({ scope: subscriptionScope, ready: false });
         snapshots[key] = [];
         publish(category);
         failures[key] = collectionReadError(category, single, profile.role, cause);
@@ -276,6 +280,7 @@ export function PlatformProvider({ children }) {
           if (!currentAttempt()) return;
           snapshots[key] = single ? (snapshot.exists() ? [normalizeRecord(snapshot, category)] : []) : snapshot.docs.map(record => normalizeRecord(record, category));
           publish(category);
+          if (riderRequests) setRiderRequestStream({ scope: subscriptionScope, ready: !snapshot.metadata?.fromCache && !snapshot.metadata?.hasPendingWrites });
           // A cached snapshot does not confirm that a rejected server read recovered.
           if (!snapshot.metadata?.fromCache) {
             retrying.delete(key);
@@ -386,6 +391,7 @@ export function PlatformProvider({ children }) {
   }
 
   function logout() { return action(async () => {
+    if (auth?.currentUser) await removeRiderPush(auth.currentUser).catch(() => {});
     await riderLocationSharing.stop();
     let closeError;
     try { await adminOtp.revoke(); } catch { closeError = new Error('You signed out, but the administrator session could not be closed on the server.'); }
@@ -473,6 +479,7 @@ export function PlatformProvider({ children }) {
         }
         transaction.set(ref, data);
       });
+      await notifyRiderOrder(account, ref.id);
       return ref.id;
     });
   }
@@ -707,6 +714,7 @@ export function PlatformProvider({ children }) {
   return <PlatformContext.Provider value={{
     user, profile, authLoading, authActionPending, isAdmin, hasAdminAccess, adminOtp, adminLoading,
     dataLoading: profileLoading || adminLoading || (!isAdmin && profile?.role === 'merchant' && storeTeam.loading) || (Boolean(subscriptionScope) && (loadedScope !== subscriptionScope || collectionsLoading)),
+    riderRequestsReady: Boolean(subscriptionScope && riderRequestStream.scope === subscriptionScope && riderRequestStream.ready),
     firebaseConfigured: Boolean(auth && db), error: error || Object.values(dataReadErrors)[0] || '', dataReadErrors, retryData,
     stores: visibleCollections ? stores : [], riders: visibleCollections ? riders : [], orders: visibleCollections ? orders : [], feedback: visibleCollections ? feedback : [],
     liveLocations: visibleCollections ? liveLocations : {}, riderLocationSharing, storeTeam,

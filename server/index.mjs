@@ -7,9 +7,12 @@ import { createDeliverySmsMiddleware } from './sms.mjs';
 import { createFirestoreSmsStore } from './firestoreSmsStore.mjs';
 import { createGpsAddressMiddleware } from './gpsAddress.mjs';
 import { createAdminOtpMiddleware } from './adminOtp.mjs';
+import { createRiderAlertsMiddleware } from './riderAlerts.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+config({ path: resolve(root, '.env.local'), quiet: true });
 config({ path: resolve(root, '.env'), quiet: true });
+const riderAlerts = createRiderAlertsMiddleware({ projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON, publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY, subject: process.env.VAPID_SUBJECT });
 const publicDir = resolve(root, 'dist');
 const gpsAddress = createGpsAddressMiddleware({ projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID });
 const adminOtp = createAdminOtpMiddleware({ projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, apiKey: process.env.MOJOAUTH_API_KEY, serviceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON });
@@ -26,6 +29,7 @@ const server = createServer(async (request, response) => {
     if (url.pathname === '/api/delivery-sms') return sms(request, response);
     if (url.pathname === '/api/gps-address') return gpsAddress(request, response);
     if (url.pathname === '/api/admin-otp') return adminOtp(request, response);
+    if (url.pathname === '/api/rider-alerts') return riderAlerts(request, response);
     if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405); return response.end(); }
     const file = resolve(publicDir, `.${decodeURIComponent(url.pathname)}`);
     if (file !== publicDir && !file.startsWith(publicDir + sep)) { response.writeHead(403); return response.end(); }

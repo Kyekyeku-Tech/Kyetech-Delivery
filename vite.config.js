@@ -6,6 +6,7 @@ import { createDeliverySmsMiddleware } from './server/sms.mjs';
 import { createFirestoreSmsStore } from './server/firestoreSmsStore.mjs';
 import { createGpsAddressMiddleware } from './server/gpsAddress.mjs';
 import { createAdminOtpMiddleware } from './server/adminOtp.mjs';
+import { createRiderAlertsMiddleware } from './server/riderAlerts.mjs';
 
 function deliveryPwa() {
   return {
@@ -50,6 +51,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), deliveryPwa(), {
       name: 'delivery-sms-api',
       configureServer(server) {
+        server.middlewares.use('/api/rider-alerts', createRiderAlertsMiddleware({ projectId: env.VITE_FIREBASE_PROJECT_ID || env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON, publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT }));
         server.middlewares.use('/api/admin-otp', createAdminOtpMiddleware({ projectId: env.VITE_FIREBASE_PROJECT_ID || env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, apiKey: env.MOJOAUTH_API_KEY, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }));
         server.middlewares.use('/api/gps-address', createGpsAddressMiddleware({ projectId: env.VITE_FIREBASE_PROJECT_ID || env.NEXT_PUBLIC_FIREBASE_PROJECT_ID }));
         server.middlewares.use('/api/delivery-sms', createDeliverySmsMiddleware({

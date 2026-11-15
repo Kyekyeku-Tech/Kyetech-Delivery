@@ -21,11 +21,21 @@ For the branded password-reset email, copy [templates/password-reset.html](./tem
 
 ## Install on a phone
 
-Open **https://kyetechdelivery.site** on your phone. The **Install app** option appears on the sign-in page and in **Profile**. On Android, Chrome and Edge offer the native installation prompt; if it is unavailable, the option explains how to install from the browser menu. On iPhone or iPad, open the site in Safari and choose **Share → Add to Home Screen → Add**, keeping **Open as Web App** enabled if shown.
+Open **https://kyetechdelivery.site** on your phone. An automatic **Install app** offer appears when the browser supports installation, with a tap to confirm. **Not now** dismisses it for the current browser session; the sign-in page and **Profile** retain a manual install option. On iPhone or iPad, the guide explains **Safari → Share → Add to Home Screen → Add**, keeping **Open as Web App** enabled if shown. Actual installation, opening in standalone mode, or the explicit **I've added the app** confirmation suppresses future offers on that browser.
 
 The installed app opens in its own window with the KyeTech icon. Deliveries, live tracking and account verification require an internet connection. Opening the app offline shows a reconnect screen. The service worker caches public app files and icons; authenticated API requests and Firebase account/delivery data use the network. App updates wait until existing app windows close so active deliveries and verification are not interrupted.
 
 `npm run build` emits the versioned root service worker automatically. HTTPS hosting is required for installation (localhost is supported for development checks). The manifest, Apple touch icon and deployment headers are included in the repository.
+
+## Rider delivery alerts
+
+Approved riders tap **Enable alerts** and allow notifications, then go online to receive new delivery requests. New requests show a banner and short chime while the app is open. **Test sound** activates audio after reopening; **Turn off** removes this device's push subscription. Initial requests and requests already waiting after reconnecting or going online do not ring again. Notification taps open the current Requests list, with normal account authorization.
+
+Web Push delivers generic new-request notifications when the app is closed or the screen is locked. The phone controls background sound, silent mode and notification settings. iPhone/iPad requires iOS/iPadOS 16.4 or later and opening KyeTech from its Home Screen icon before enabling notifications. Browser permission, internet access and OS support are required.
+
+[api/rider-alerts.js](./api/rider-alerts.js) uses the existing Firebase service account and server-only `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (the public site HTTPS URL). Generate a persistent key pair with `web-push` and store it in local server configuration and Vercel Production/Preview environment variables; keep the private key out of browser-prefixed variables. Redeploy after adding these variables. Vite and the standalone Node server expose the same authenticated route. The saved delivery's customer, merchant owner or authorized merchant team member dispatches alerts after its confirmed write. The server checks current pending/unassigned status and rider eligibility, honors preferred riders, deduplicates dispatches and removes expired subscriptions. A push failure leaves the delivery saved. Private subscriptions and dispatch leases are protected by the existing fallback-deny Firestore rules; no client collection access or Cloud Functions deployment is needed.
+
+`npm test` covers push authorization, recipient filtering, subscription security, request deduplication, worker click routing and client behavior. `node tests/rider-alert-ui.mjs` verifies the actual rider component with isolated identity/push/API fixtures; `node tests/pwa-ui.mjs` verifies the production install/offline behavior after a build. These checks never send real notifications.
 
 ## Activate Firebase
 

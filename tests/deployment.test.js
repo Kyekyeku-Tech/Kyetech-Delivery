@@ -4,15 +4,16 @@ import test from 'node:test';
 import adminOtp from '../api/admin-otp.js';
 import gpsAddress from '../api/gps-address.js';
 import deliverySms from '../api/delivery-sms.js';
+import riderAlerts from '../api/rider-alerts.js';
 import { checkDeployment } from '../scripts/check-deployment.mjs';
 
 test('Production API entrypoints start and return JSON without authentication or sending messages', async () => {
-  const routes = { '/api/admin-otp': adminOtp, '/api/gps-address': gpsAddress, '/api/delivery-sms': deliverySms };
+  const routes = { '/api/admin-otp': adminOtp, '/api/gps-address': gpsAddress, '/api/delivery-sms': deliverySms, '/api/rider-alerts': riderAlerts };
   const server = createServer((request, response) => routes[new URL(request.url, 'http://localhost').pathname](request, response));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const results = await checkDeployment(`http://127.0.0.1:${server.address().port}`);
-    assert.equal(results.length, 4);
+    assert.equal(results.length, 6);
     assert.deepEqual(results.filter(result => !result.passed), []);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });

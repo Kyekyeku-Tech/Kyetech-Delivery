@@ -7,6 +7,7 @@
     { "source": "/manifest.webmanifest", "headers": [{ "key": "Cache-Control", "value": "no-cache" }, { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }] }
   ],
   "functions": {
+    "api/rider-alerts.js": { "maxDuration": 60, "includeFiles": "{server,src/lib}/**" },
     "api/delivery-sms.js": { "maxDuration": 60, "includeFiles": "{server,src/lib}/**" },
     "api/gps-address.js": { "maxDuration": 30, "includeFiles": "{server,src/lib}/**" },
     "api/admin-otp.js": { "maxDuration": 60, "includeFiles": "{server,src/lib}/**" }

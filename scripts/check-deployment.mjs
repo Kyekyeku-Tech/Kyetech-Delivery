@@ -1,11 +1,13 @@
 import { pathToFileURL } from 'node:url';
 
-// These probes stop before authentication or delivery; they send no emails or SMS.
+// These probes stop before authentication or delivery; they send no notifications, emails or SMS.
 const probes = [
   { path: '/api/admin-otp', method: 'GET', status: 405 },
   { path: '/api/admin-otp', method: 'POST', status: 401, body: { action: 'send' } },
   { path: '/api/gps-address?latitude=4.9&longitude=-1.7', method: 'GET', status: 401 },
   { path: '/api/delivery-sms', method: 'GET', status: 405 },
+  { path: '/api/rider-alerts', method: 'GET', status: 401 },
+  { path: '/api/rider-alerts', method: 'POST', status: 401, body: { action: 'dispatch', orderId: 'startup-check' } },
 ];
 
 export async function checkDeployment(origin, fetchImpl = fetch) {

@@ -43,8 +43,16 @@ const browser = await playwright.chromium.launch({ headless: true });
 let passes = 0;
 
 async function context(options = {}) {
-  const result = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: androidAgent, ...options });
+  const { fixtureInstallEvents = false, ...browserOptions } = options;
+  const result = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: androidAgent, ...browserOptions });
   await result.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  if (fixtureInstallEvents) await result.addInitScript(() => {
+    // Keep browser timing independent of the deterministic install-event doubles.
+    addEventListener('beforeinstallprompt', event => {
+      if (!event.__verificationInstall) event.stopImmediatePropagation();
+    }, { capture: true });
+    globalThis.__pwaPromptCalls = 0;
+  });
   return result;
 }
 
@@ -70,6 +78,37 @@ async function check(name, operation) {
   await operation();
   passes += 1;
   console.log(`PASS ${name}`);
+}
+
+const installDialog = page => page.getByRole('dialog', { name: 'Install KyeTech Delivery', exact: true });
+
+async function offerInstall(page, outcome = 'dismissed') {
+  await page.evaluate(outcome => {
+    globalThis.__pwaPromptCalls ??= 0;
+    const event = new Event('beforeinstallprompt', { cancelable: true });
+    event.__verificationInstall = true;
+    event.prompt = async () => { globalThis.__pwaPromptCalls += 1; };
+    event.userChoice = Promise.resolve({ outcome, platform: 'web' });
+    dispatchEvent(event);
+  }, outcome);
+}
+
+async function dismissInstallOffer(page) {
+  const dialog = installDialog(page);
+  if (await dialog.isVisible()) await dialog.getByRole('button', { name: 'Not now', exact: true }).click();
+}
+
+async function noInstallOverflow(page, label) {
+  const geometry = await page.evaluate(() => {
+    const dialog = document.querySelector('.install-app-dialog');
+    const bounds = dialog?.getBoundingClientRect();
+    return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth, bounds: bounds ? { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom, height: innerHeight } : null };
+  });
+  assert.ok(geometry.scrollWidth <= geometry.width + 1, label + ': page overflow');
+  if (geometry.bounds) {
+    assert.ok(geometry.bounds.left >= -1 && geometry.bounds.right <= geometry.width + 1, label + ': dialog exceeds phone width');
+    assert.ok(geometry.bounds.top >= -1 && geometry.bounds.bottom <= geometry.bounds.height + 1, label + ': dialog exceeds phone height');
+  }
 }
 
 try {
@@ -101,9 +140,10 @@ try {
       const cdp = await browserContext.newCDPSession(page);
       const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
       assert.deepEqual(installabilityErrors, [], `Chrome installability errors: ${JSON.stringify(installabilityErrors)}`);
-      assert.equal(await page.getByRole('dialog').count(), 0, 'Installation should not open a dialog automatically.');
-      const geometry = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
-      assert.ok(geometry.scrollWidth <= geometry.width + 1, 'Installation controls must fit on a phone.');
+      await offerInstall(page);
+      await installDialog(page).waitFor();
+      assert.equal(await page.evaluate(() => globalThis.__pwaPromptCalls), 0, 'The app offer must not invoke the native browser prompt automatically.');
+      await noInstallOverflow(page, 'Production installation offer');
       await page.screenshot({ path: `${output}/mobile-install.png`, fullPage: true, animations: 'disabled' });
     } finally { await browserContext.close(); }
   });
@@ -130,54 +170,122 @@ try {
     } finally { await browserContext.close(); }
   });
 
-  await check('Native installation is user initiated and a declined prompt leaves the login untouched', async () => {
-    const browserContext = await context();
+  await check('Android and desktop offers preserve login, honor session dismissal and wait for actual installation', async () => {
+    for (const width of [320, 390, 1366]) {
+      const browserContext = await context({ fixtureInstallEvents: true, viewport: { width, height: 844 }, ...(width > 720 ? { isMobile: false, hasTouch: false, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36' } : {}) });
+      try {
+        const page = await controlledPage(browserContext);
+        const email = page.getByLabel('Email address', { exact: true });
+        await email.fill('unfinished-login@example.invalid');
+        await offerInstall(page);
+        const dialog = installDialog(page);
+        await dialog.waitFor();
+        assert.equal(await page.evaluate(() => globalThis.__pwaPromptCalls), 0);
+        assert.equal(await page.getByRole('button', { name: 'Install app', exact: true }).count(), 1, 'The inline card must not duplicate the modal action in accessibility navigation.');
+        await noInstallOverflow(page, width + 'px automatic install');
+        await page.screenshot({ path: `${output}/automatic-install-${width}.png`, animations: 'disabled' });
+        await dialog.getByRole('button', { name: 'Not now', exact: true }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        assert.equal(await email.inputValue(), 'unfinished-login@example.invalid');
+        const cardButton = page.locator('.install-app-card').getByRole('button', { name: 'Install app', exact: true });
+        assert.equal(await cardButton.isVisible(), true);
+        await page.reload({ waitUntil: 'networkidle' });
+        await email.waitFor();
+        await offerInstall(page, 'accepted');
+        assert.equal(await dialog.count(), 0, 'Not now must suppress later automatic offers in this tab session.');
+        await cardButton.click();
+        if (await dialog.isVisible()) await dialog.getByRole('button', { name: 'Install app', exact: true }).click();
+        await page.waitForFunction(() => globalThis.__pwaPromptCalls === 1);
+        if (width < 720) assert.equal(await cardButton.isVisible(), true, 'A phone keeps manual guidance available until installation is confirmed.');
+        await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
+        await cardButton.waitFor({ state: 'hidden' });
+        assert.equal(await dialog.count(), 0);
+        await page.reload({ waitUntil: 'networkidle' });
+        await email.waitFor();
+        await offerInstall(page);
+        assert.equal(await page.locator('.install-app-card').count(), 0);
+        assert.equal(await dialog.count(), 0, 'Actual installation must suppress controls after reload.');
+      } finally { await browserContext.close(); }
+    }
+  });
+
+  await check('Declining the native browser chooser keeps account input and does not persist installation', async () => {
+    const browserContext = await context({ fixtureInstallEvents: true });
     try {
       const page = await controlledPage(browserContext);
       await page.getByLabel('Email address', { exact: true }).fill('unfinished-login@example.invalid');
-      await page.evaluate(() => {
-        globalThis.__pwaPromptCalls = 0;
-        const event = new Event('beforeinstallprompt', { cancelable: true });
-        event.prompt = async () => { globalThis.__pwaPromptCalls += 1; };
-        event.userChoice = Promise.resolve({ outcome: 'dismissed', platform: 'web' });
-        dispatchEvent(event);
-      });
-      assert.equal(await page.evaluate(() => globalThis.__pwaPromptCalls), 0);
-      assert.equal(await page.getByRole('dialog').count(), 0);
-      await page.getByRole('button', { name: 'Install app', exact: true }).click();
+      await offerInstall(page);
+      await installDialog(page).getByRole('button', { name: 'Install app', exact: true }).click();
       await page.waitForFunction(() => globalThis.__pwaPromptCalls === 1);
-      assert.equal(await page.getByRole('dialog').count(), 0);
+      await installDialog(page).waitFor({ state: 'hidden' });
       assert.equal(await page.getByLabel('Email address', { exact: true }).inputValue(), 'unfinished-login@example.invalid');
-      await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
-      await page.getByRole('button', { name: 'Install app', exact: true }).waitFor({ state: 'hidden' });
+      assert.equal(await page.locator('.install-app-card').isVisible(), true);
+      await page.reload({ waitUntil: 'networkidle' });
+      await offerInstall(page);
+      assert.equal(await installDialog(page).count(), 0);
+      assert.equal(await page.locator('.install-app-card').isVisible(), true);
     } finally { await browserContext.close(); }
   });
 
-  await check('iPhone installation guidance opens on demand and supports keyboard dismissal', async () => {
-    const browserContext = await context({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Mobile/15E148 Safari/604.1' });
-    // Chromium supplies the mobile viewport and accessibility automation. The
-    // Safari user agent exercises the documented iPhone guidance branch.
-    await browserContext.addInitScript(() => {
-      Object.defineProperty(navigator, 'standalone', { configurable: true, get: () => false });
-      addEventListener('beforeinstallprompt', event => event.stopImmediatePropagation(), { capture: true });
-    });
-    try {
-      const page = await controlledPage(browserContext);
-      assert.equal(await page.getByRole('dialog').count(), 0);
-      const installButton = page.getByRole('button', { name: 'Install app', exact: true });
-      await installButton.click();
-      const dialog = page.getByRole('dialog', { name: 'Install KyeTech Delivery', exact: true });
-      await dialog.waitFor();
-      const copy = await dialog.innerText();
-      assert.match(copy, /Safari/);
-      assert.match(copy, /Share/);
-      assert.match(copy, /Add to Home Screen/i);
-      assert.match(copy, /Add/);
-      await page.screenshot({ path: `${output}/iphone-install-guide.png`, animations: 'disabled' });
-      await page.keyboard.press('Escape');
-      await dialog.waitFor({ state: 'hidden' });
-      assert.equal(await installButton.evaluate(element => element === document.activeElement), true);
-    } finally { await browserContext.close(); }
+  await check('iPhone guidance opens automatically, dismisses accessibly and persists only explicit installation confirmation', async () => {
+    for (const width of [320, 390]) {
+      const browserContext = await context({ fixtureInstallEvents: true, viewport: { width, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Mobile/15E148 Safari/604.1' });
+      // Chromium supplies the viewport/keyboard automation; Safari's user agent
+      // selects iPhone guidance without installing anything on a real device.
+      await browserContext.addInitScript(() => Object.defineProperty(navigator, 'standalone', { configurable: true, get: () => false }));
+      try {
+        const page = await controlledPage(browserContext);
+        const dialog = installDialog(page);
+        await dialog.waitFor();
+        assert.equal(await page.evaluate(() => globalThis.__pwaPromptCalls), 0);
+        await noInstallOverflow(page, width + 'px iPhone offer');
+        await dialog.getByRole('button', { name: 'Install app', exact: true }).click();
+        await dialog.getByRole('button', { name: 'Got it', exact: true }).waitFor();
+        const copy = await dialog.innerText();
+        assert.match(copy, /Safari/);
+        assert.match(copy, /Share/);
+        assert.match(copy, /Add to Home Screen/i);
+        await noInstallOverflow(page, width + 'px iPhone guide');
+        await page.screenshot({ path: `${output}/iphone-install-guide-${width}.png`, animations: 'disabled' });
+        await dialog.getByRole('button', { name: 'Got it', exact: true }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        const installButton = page.locator('.install-app-card').getByRole('button', { name: 'Install app', exact: true });
+        assert.equal(await installButton.isVisible(), true, 'Got it must leave the app uninstalled.');
+        await page.reload({ waitUntil: 'networkidle' });
+        assert.equal(await dialog.count(), 0, 'Guide dismissal must last for the tab session.');
+        await installButton.click();
+        await dialog.getByRole('button', { name: 'Got it', exact: true }).waitFor();
+        for (let step = 0; step < 8; step += 1) {
+          await page.keyboard.press('Tab');
+          assert.equal(await dialog.evaluate(element => element.contains(document.activeElement)), true, 'Keyboard focus must remain in the install modal.');
+        }
+        await page.keyboard.press('Escape');
+        await dialog.waitFor({ state: 'hidden' });
+        assert.equal(await installButton.evaluate(element => element === document.activeElement), true);
+        await installButton.click();
+        await dialog.getByRole('button', { name: "I've added the app", exact: true }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        assert.equal(await page.locator('.install-app-card').count(), 0);
+        await page.reload({ waitUntil: 'networkidle' });
+        await page.getByLabel('Email address', { exact: true }).waitFor();
+        assert.equal(await page.locator('.install-app-card').count(), 0);
+        assert.equal(await dialog.count(), 0);
+      } finally { await browserContext.close(); }
+    }
+  });
+
+  await check('Recipient review links stay free of installation popups on Android, iPhone and desktop', async () => {
+    for (const userAgent of [androidAgent, 'iPhone Safari', 'Desktop Chrome']) {
+      const browserContext = await context({ fixtureInstallEvents: true, userAgent });
+      try {
+        const page = await browserContext.newPage();
+        await page.goto(`${origin}/review?token=private-review-fixture`, { waitUntil: 'networkidle' });
+        await offerInstall(page);
+        assert.equal(await installDialog(page).count(), 0);
+        assert.equal(await page.locator('.install-app-card').count(), 0);
+        assert.equal(await page.evaluate(() => globalThis.__pwaPromptCalls), 0);
+      } finally { await browserContext.close(); }
+    }
   });
 
   await check('An app launched from the phone home screen hides redundant installation controls', async () => {
@@ -220,9 +328,10 @@ try {
   });
 
   await check('A new deployment waits without reloading an open login or interrupting its input', async () => {
-    const browserContext = await context();
+    const browserContext = await context({ fixtureInstallEvents: true });
     try {
       const page = await controlledPage(browserContext);
+      await dismissInstallOffer(page);
       await page.getByLabel('Email address', { exact: true }).fill('unfinished-login@example.invalid');
       await page.evaluate(() => { globalThis.__pwaControllerChanges = 0; navigator.serviceWorker.addEventListener('controllerchange', () => globalThis.__pwaControllerChanges += 1); });
       updateNumber += 1;
