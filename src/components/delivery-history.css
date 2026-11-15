@@ -1,0 +1,9 @@
+.app-shell .delivery-history-heading { align-items: flex-start; margin-bottom: 14px; }
+.delivery-history-heading .section-heading { margin-bottom: 0; }
+.app-shell .delivery-history-heading > .button { padding: 10px 13px; }
+.app-shell .delivery-history-filters { flex-wrap: wrap; overflow: visible; margin-bottom: 14px; gap: 6px; }
+.app-shell .delivery-history-filters .chip { padding-inline: 12px; }
+@media (max-width: 359px) {
+  .app-shell .delivery-history-heading > .button { font-size: 12px; }
+  .app-shell .delivery-history-filters .chip { padding-inline: 9px; }
+}

@@ -1,0 +1,412 @@
+.app-loading-screen {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(28px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 16% 18%, #ffdecb88, transparent 44%),
+    radial-gradient(ellipse at 84% 80%, #dcd4ff80, transparent 45%),
+    radial-gradient(ellipse at 82% 20%, #d5f4ed75, transparent 38%),
+    #faf9fd;
+}
+
+.app-loading-panel {
+  position: relative;
+  width: min(100%, 440px);
+  display: grid;
+  justify-items: center;
+  padding: 32px 28px 29px;
+  border: 1px solid #eee7f5;
+  border-radius: 32px;
+  background: #ffffffd9;
+  box-shadow: 0 24px 80px #5143650b, 0 5px 20px #51436505;
+  animation: app-loading-enter .4s ease-out both;
+}
+
+.app-loading-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 22%;
+  width: 56%;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, #f1ab6c, #ab89d0, #81c5b2);
+  opacity: .7;
+}
+
+.app-loading-brand {
+  margin-bottom: 18px;
+}
+
+.app-loading-brand .brand {
+  gap: 10px;
+}
+
+.app-loading-brand .brand-copy small {
+  color: #756d80;
+  opacity: 1;
+}
+
+.app-loading-journey {
+  position: relative;
+  width: min(100%, 292px);
+  aspect-ratio: 292 / 178;
+  margin-bottom: 24px;
+}
+
+.app-loading-halo {
+  position: absolute;
+  width: 56.165%;
+  aspect-ratio: 1;
+  inset: 3.371% auto auto 50%;
+  margin-left: -28.083%;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #fff0df, #f2e9ff 63%, #e2f6f0);
+  animation: app-loading-halo-breathe 4.8s ease-in-out infinite;
+}
+
+.app-loading-orbit {
+  position: absolute;
+  width: 65.069%;
+  aspect-ratio: 1;
+  inset: -3.933% auto auto 50%;
+  margin-left: -32.535%;
+  border: 1px dashed #e4dcec;
+  border-radius: 50%;
+  animation: app-loading-orbit-turn 28s linear infinite;
+}
+
+.app-loading-orbit::after {
+  content: '';
+  position: absolute;
+  width: 4.211%;
+  aspect-ratio: 1;
+  top: 7.368%;
+  left: 17.895%;
+  border-radius: 50%;
+  background: #b69add;
+  box-shadow: 0 0 0 5px #f3eafc;
+}
+
+.app-loading-route {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.app-loading-route-base {
+  stroke: #ffffff;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+
+.app-loading-route-dashes {
+  stroke: #cabbdc;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 3 9;
+  animation: app-loading-route-flow 1.8s linear infinite;
+}
+
+.app-loading-stop {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 12.671%;
+  aspect-ratio: 1;
+  bottom: 13.483%;
+  border-radius: 35%;
+  background: #ffffff;
+  box-shadow: 0 5px 14px #4737580c;
+}
+
+.app-loading-stop-store {
+  left: 5.479%;
+  color: #7f5cb4;
+  border: 1px solid #e5d8f4;
+}
+
+.app-loading-stop-pin {
+  right: 5.479%;
+  color: #269b85;
+  border: 1px solid #cfece4;
+}
+
+.app-loading-rider {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 23.288%;
+  aspect-ratio: 1;
+  top: 37.079%;
+  left: 50%;
+  margin-left: -11.644%;
+  border: 3px solid #ffffff;
+  border-radius: 32%;
+  background: linear-gradient(145deg, #ffae61, #f37021 76%);
+  color: #ffffff;
+  box-shadow: 0 10px 22px #e77c3733;
+  animation: app-loading-rider-travel 4.8s ease-in-out infinite;
+}
+
+.app-loading-speed {
+  position: absolute;
+  height: 2px;
+  width: 20.588%;
+  left: -29.412%;
+  top: 36.765%;
+  border-radius: 3px;
+  background: #f3b68d;
+}
+
+.app-loading-speed::after {
+  content: '';
+  position: absolute;
+  width: 64.286%;
+  height: 2px;
+  top: 6px;
+  right: 0;
+  border-radius: inherit;
+  background: inherit;
+}
+
+.app-loading-parcel {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 12.329%;
+  aspect-ratio: 1;
+  top: 6.742%;
+  right: 16.096%;
+  border-radius: 33%;
+  border: 1px solid #efdcc7;
+  background: #fff6e8;
+  color: #b17c3e;
+  transform: rotate(10deg);
+  animation: app-loading-parcel-float 3.2s ease-in-out infinite;
+}
+
+.app-loading-spark {
+  position: absolute;
+  border-radius: 50%;
+  animation: app-loading-spark-pulse 3s ease-in-out infinite;
+}
+
+.app-loading-spark-one {
+  width: 2.397%;
+  aspect-ratio: 1;
+  left: 13.014%;
+  top: 23.034%;
+  background: #7ed0bb;
+}
+
+.app-loading-spark-two {
+  width: 1.712%;
+  aspect-ratio: 1;
+  right: 9.589%;
+  top: 41.011%;
+  background: #eeb286;
+  animation-delay: -1.5s;
+}
+
+.app-loading-copy {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.app-loading-copy h1,
+.app-loading-copy h2 {
+  max-width: 310px;
+  margin: 0;
+  color: #32263f;
+  font-size: clamp(21px, 2.7vw, 25px);
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -.035em;
+  overflow-wrap: anywhere;
+}
+
+.app-loading-helper {
+  max-width: 285px;
+  margin: -3px 0 4px;
+  color: #746c82;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.app-loading-journey .app-loading-stop > svg,
+.app-loading-journey .app-loading-parcel > svg { width: 55%; height: 55%; }
+.app-loading-journey .app-loading-rider > svg { width: 57%; height: 57%; }
+
+.app-loading-progress {
+  width: min(100%, 168px);
+  height: 4px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eee7f5;
+}
+
+.app-loading-progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f8b46d, #f37021, #aa82cc);
+  animation: app-loading-progress-slide 1.8s ease-in-out infinite;
+}
+
+.app-loading-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+.app-loading-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #c3b3d4;
+  animation: app-loading-dot-bounce 1.4s ease-in-out infinite;
+}
+
+.app-loading-dots span:nth-child(2) { animation-delay: .16s; }
+.app-loading-dots span:nth-child(3) { animation-delay: .32s; }
+
+.app-loading-screen-compact {
+  min-height: 0;
+  padding: 0;
+  border: 1px solid #eae1f1;
+  border-radius: 22px;
+  background: linear-gradient(120deg, #fff8ef, #f9f5ff 62%, #f0faf6);
+}
+
+.app-loading-screen-compact .app-loading-panel {
+  width: 100%;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 22px;
+  padding: 20px 24px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-loading-screen-compact .app-loading-panel::before { display: none; }
+
+.app-loading-screen-compact .app-loading-journey {
+  width: 150px;
+  max-width: 100%;
+  margin-bottom: 0;
+}
+
+.app-loading-screen-compact .app-loading-copy {
+  gap: 12px;
+  justify-items: start;
+  text-align: left;
+}
+
+.app-loading-screen-compact .app-loading-progress { width: min(100%, 128px); }
+.app-loading-screen-compact .app-loading-rider { border-width: 2px; }
+
+.app-loading-screen-compact .app-loading-copy h2 {
+  max-width: 100%;
+  font-size: 17px;
+  letter-spacing: -.02em;
+}
+
+.app-loading-screen-compact .app-loading-dots {
+  display: none;
+}
+
+@keyframes app-loading-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes app-loading-halo-breathe {
+  0%, 100% { transform: scale(.96); opacity: .75; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+
+@keyframes app-loading-orbit-turn { to { transform: rotate(360deg); } }
+@keyframes app-loading-route-flow { to { stroke-dashoffset: -24; } }
+
+@keyframes app-loading-rider-travel {
+  0% { transform: translate(-95%, 9%) rotate(-3deg); opacity: .25; }
+  10% { opacity: 1; }
+  45% { transform: translate(0, -7%) rotate(0deg); opacity: 1; }
+  85% { transform: translate(95%, 9%) rotate(3deg); opacity: 1; }
+  100% { transform: translate(95%, 9%) rotate(3deg); opacity: .25; }
+}
+
+@keyframes app-loading-parcel-float {
+  0%, 100% { transform: translateY(0) rotate(10deg); }
+  50% { transform: translateY(-5px) rotate(3deg); }
+}
+
+@keyframes app-loading-spark-pulse {
+  0%, 100% { transform: scale(.9); opacity: .7; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes app-loading-progress-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(330%); }
+}
+
+@keyframes app-loading-dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+@media (max-width: 380px) {
+  .app-loading-screen { padding-inline: 16px; }
+  .app-loading-panel { padding: 27px 18px 26px; border-radius: 26px; }
+  .app-loading-brand { margin-bottom: 12px; }
+  .app-loading-journey { width: min(100%, 248px); }
+  .app-loading-copy h1 { font-size: 22px; }
+  .app-loading-screen-compact { padding: 0; }
+}
+
+@media (max-width: 580px) {
+  .app-loading-screen-compact .app-loading-panel { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; padding: 19px 16px; }
+  .app-loading-screen-compact .app-loading-journey { width: 96px; }
+  .app-loading-screen-compact .app-loading-copy h2 { font-size: 16px; }
+}
+
+@media (max-height: 560px) and (min-width: 480px) {
+  .app-loading-screen:not(.app-loading-screen-compact) { padding: 16px 20px; }
+  .app-loading-screen:not(.app-loading-screen-compact) .app-loading-panel { width: min(100%, 640px); grid-template-columns: 160px minmax(0, 1fr); align-items: center; gap: 15px 24px; padding: 20px 24px; border-radius: 24px; }
+  .app-loading-screen:not(.app-loading-screen-compact) .app-loading-brand { grid-column: 1 / -1; margin-bottom: 0; }
+  .app-loading-screen:not(.app-loading-screen-compact) .app-loading-journey { width: 160px; margin-bottom: 0; }
+  .app-loading-screen:not(.app-loading-screen-compact) .app-loading-copy { gap: 11px; }
+  .app-loading-screen:not(.app-loading-screen-compact) .app-loading-copy h1 { font-size: 20px; }
+  .app-loading-screen:not(.app-loading-screen-compact) .app-loading-helper { font-size: 11px; margin-bottom: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loading-screen,
+  .app-loading-screen *,
+  .app-loading-screen::before,
+  .app-loading-screen::after,
+  .app-loading-screen *::before,
+  .app-loading-screen *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .app-loading-rider { opacity: 1; transform: none; }
+  .app-loading-halo { opacity: 1; }
+  .app-loading-progress span { left: 0; width: 100%; opacity: .65; transform: none; }
+}

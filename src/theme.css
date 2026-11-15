@@ -1,0 +1,222 @@
+:root { --muted: #687385; --line: #e4e9f1; }
+body { background: #f6f8fc; }
+.app-shell { --page-accent: #b85b28; --page-tint: #fff5ed; --page-border: #f1dfce; }
+.app-shell.role-rider { --page-accent: #32669d; --page-tint: #eff6ff; --page-border: #d7e5f6; }
+.app-shell.role-merchant { --page-accent: #7054ae; --page-tint: #f6f1ff; --page-border: #e4daf4; }
+.app-shell.admin-shell { --page-accent: #3b628e; --page-tint: #f1f6fc; --page-border: #dce6f2; }
+.app-shell .topbar { border-bottom: 1px solid #e7ebf2; }
+.app-shell .workspace { min-width: 0; }
+.app-shell .page-heading { padding: 24px; border: 1px solid var(--page-border); background: linear-gradient(110deg, var(--page-tint), #fff); border-radius: 20px; align-items: center; gap: 18px; }
+.app-shell .page-heading>div { flex: 1; min-width: 0; }
+.app-shell .page-heading h1 { overflow-wrap: anywhere; font-size: clamp(27px, 3vw, 39px); letter-spacing: -.035em; }
+.app-shell .page-heading p { color: #687487; font-size: 14px; line-height: 1.7; }
+.app-shell .page-heading .eyebrow { color: var(--page-accent); font-size: 10px; margin-bottom: 10px; }
+.app-shell .page-heading>.button, .app-shell .page-heading>.status-badge { flex-shrink: 0; }
+.app-shell .rider-page-heading>.rider-availability { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.rider-availability-label { font-size: 12px; line-height: 1.5; color: #687385; white-space: nowrap; }
+.rider-availability-online { color: #287853; }
+.app-shell .section-heading h2 { font-size: 20px; line-height: 1.4; letter-spacing: -.025em; }
+.app-shell .section-heading p { font-size: 13px; color: #737e90; line-height: 1.7; }
+.app-shell .workspace .row { flex-wrap: wrap; min-width: 0; }
+.app-shell .workspace .row>div { min-width: 0; }
+.app-shell .workspace .row>.section-heading { flex: 1; min-width: 150px; }
+.app-shell .card { border-color: #e3e8f0; box-shadow: 0 3px 15px #26364e04; }
+.app-shell .button { font-size: 13px; line-height: 1.4; }
+.app-shell .field-label { font-size: 13px; line-height: 1.5; }
+.app-shell .field input, .app-shell .field select, .app-shell .field textarea { font-size: 14px; min-height: 48px; }
+.app-shell .field small { font-size: 12px; color: #748092; }
+.app-shell .notice { font-size: 13px; line-height: 1.7; border-radius: 14px; }
+.app-shell .notice svg { width: 19px; height: 19px; margin-top: 2px; }
+.app-shell .notice-success { background: #edf9f2; border-color: #d7eddf; color: #33775a; }
+.app-shell .chip { font-size: 12px; border-radius: 10px; padding: 10px 15px; }
+.app-shell .status-badge { font-size: 10px; padding: 6px 10px; }
+.app-shell .empty-state h3 { font-size: 17px; line-height: 1.5; }
+.app-shell .empty-state p { font-size: 13px; line-height: 1.75; color: #748094; }
+.app-shell .empty-icon { background: #f1f5fc; color: #91a5bf; }
+
+/* Spacious totals with readable labels and aligned values. */
+.metric-card { --metric-accent: #386eae; --metric-tint: #f1f7ff; --metric-border: #d7e6f7; }
+.metric-card.metric-gold { --metric-accent: #a9791d; --metric-tint: #fff9eb; --metric-border: #f2e5c3; }
+.metric-card.metric-teal { --metric-accent: #258367; --metric-tint: #eef9f4; --metric-border: #d2eade; }
+.metric-card.metric-orange { --metric-accent: #b95d2b; --metric-tint: #fff5ed; --metric-border: #f3dfcd; }
+.app-shell .metric-card { background: var(--metric-tint); border-color: var(--metric-border); border-radius: 17px; padding: 21px; display: flex; flex-direction: column; min-width: 0; }
+.metric-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.metric-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: #fff; border: 1px solid var(--metric-border); color: var(--metric-accent); flex-shrink: 0; }
+.metric-icon svg { width: 18px; height: 18px; }
+.app-shell .metric-icon svg { color: var(--metric-accent); }
+.metric-label { color: #526176; font-size: 13px; line-height: 1.55; font-weight: 550; min-width: 0; }
+.metric-value { display: block; font-size: 32px; line-height: 1.25; font-weight: 750; letter-spacing: -.035em; color: #25354b; margin: 18px 0 8px; font-variant-numeric: tabular-nums; }
+.metric-detail { margin-top: auto; color: #748195; font-size: 12px; line-height: 1.5; }
+.metric-rating, .metric-money { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+.metric-rating small { font-size: 14px; font-weight: 550; color: #9a7c42; letter-spacing: 0; }
+.metric-money { gap: 6px; font-size: 28px; }
+.metric-money small { font-size: 15px; color: #397d67; letter-spacing: 0; font-weight: 650; }
+.app-shell .rider-stat-grid .metric-card { align-items: center; text-align: center; }
+.rider-stat-grid .metric-heading { justify-content: center; width: 100%; }
+.rider-stat-grid .metric-money { max-width: 100%; justify-content: center; flex-wrap: wrap; white-space: normal; }
+.rider-stat-grid .metric-money>span { min-width: 0; overflow-wrap: anywhere; }
+
+/* Color identifies actions without crowding their text. */
+.app-shell .customer-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.app-shell .action-card { --action-accent: #b75e2d; --action-tint: #fff5ed; --action-border: #f0dfce; background: var(--action-tint); border-color: var(--action-border); border-radius: 17px; padding: 22px 18px; min-width: 0; }
+.app-shell .action-card:nth-child(6n+2) { --action-accent: #22796b; --action-tint: #eef9f5; --action-border: #d3e9df; }
+.app-shell .action-card:nth-child(6n+3) { --action-accent: #6b55af; --action-tint: #f5f1fe; --action-border: #e3daf6; }
+.app-shell .action-card:nth-child(6n+4) { --action-accent: #a47a23; --action-tint: #fff9e9; --action-border: #f0e4bf; }
+.app-shell .action-card:nth-child(6n+5) { --action-accent: #3c77ae; --action-tint: #eef6ff; --action-border: #d6e5f5; }
+.app-shell .action-card:nth-child(6n+6) { --action-accent: #ad618b; --action-tint: #fcf1f7; --action-border: #efd9e5; }
+.app-shell .customer-actions .action-card { border: 1px solid var(--action-accent); }
+.app-shell .action-icon { background: #fff; color: var(--action-accent); border: 1px solid var(--action-border); border-radius: 12px; width: 42px; height: 42px; margin-bottom: 16px; }
+.app-shell .action-label { font-size: 13px; line-height: 1.5; color: #303b4d; }
+.app-shell .action-description { font-size: 11px; line-height: 1.6; color: #738094; }
+.app-shell .action-card-notification { border-color: #e8a19b; }
+.app-shell .action-card-notification .action-icon { color: #d14a3c; border-color: #f0c8c2; }
+.app-shell .action-card:hover { box-shadow: 0 8px 24px #26364e0a; border-color: var(--action-accent); }
+.app-shell .action-card-notification:hover { border-color: #dc2626; }
+
+/* Delivery, directory, profile, and inbox text share the same hierarchy. */
+.app-shell .order-card { border-left: 4px solid #e9ae68; }
+.app-shell .order-accepted { border-left-color: #69a0d8; }
+.app-shell .order-picked_up { border-left-color: #aa88d2; }
+.app-shell .order-delivered { border-left-color: #66b58d; }
+.app-shell .order-cancelled { border-left-color: #df8c86; }
+.app-shell .order-card h3 { font-size: 14px; }
+.app-shell .order-card>.row>div>small { font-size: 11px; line-height: 1.6; }
+.app-shell .route-point strong { font-size: 14px; line-height: 1.6; }
+.app-shell .route-point small { font-size: 11px; }
+.app-shell .route-point:last-child .route-dot { background: #308970; border-color: #308970; }
+.app-shell .order-meta { font-size: 12px; line-height: 1.6; }
+.app-shell .order-meta .amount { font-size: 19px; white-space: nowrap; }
+.app-shell .order-card a[href^="tel:"] { background: #f0f6ff; color: #3c6b9c; border-color: #d5e3f4; }
+.app-shell .order-card a[href^="https://www.google.com/maps"] { background: #edf9f2; color: #287853; border-color: #d0e9da; }
+.app-shell .store-card { border-color: #e3e8f0; box-shadow: 0 3px 15px #26364e04; }
+.app-shell .store-body h3 { font-size: 16px; }
+.app-shell .merchant-welcome { background: linear-gradient(115deg, #f4edff, #fff6ed); border-color: #e3d8f0; margin-bottom: 24px; }
+.app-shell .merchant-welcome h1 { font-size: clamp(27px, 3vw, 36px); line-height: 1.3; overflow-wrap: anywhere; }
+.app-shell .merchant-welcome .muted { font-size: 13px; line-height: 1.8; margin-top: 8px; }
+.app-shell .store-body p { font-size: 13px; line-height: 1.75; }
+.app-shell .store-body .row { font-size: 12px; line-height: 1.6; flex-wrap: wrap; }
+.app-shell .store-body .eyebrow { color: #a36c2c; background: #fff5e8; padding: 5px 8px; border-radius: 6px; font-size: 10px; display: inline-block; width: fit-content; }
+.app-shell .rider-card { background: #fcfdff; border-color: #dfe8f3; }
+.app-shell .rider-card h3 { font-size: 15px; line-height: 1.5; }
+.app-shell .rider-card .muted { font-size: 12px; line-height: 1.6; }
+.app-shell .profile-card { border-color: #e1e6ef; box-shadow: 0 4px 20px #26364e04; }
+.app-shell .profile-hero { background: linear-gradient(110deg, #fff5ec, #f6f2ff); border-bottom-color: #eae2ef; }
+.app-shell .profile-hero h2 { font-size: 24px; line-height: 1.4; letter-spacing: -.025em; }
+.app-shell .profile-hero p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.app-shell .profile-form .photo-upload { border-color: #f0decb; background: #fff9f2; }
+.app-shell .profile-form .photo-upload-hint { font-size: 12px; }
+.app-shell .brand-option { background: #f8f6fe; border-color: #e6def4; }
+.app-shell .brand-option-active { background: #fff1e5; border-color: #f37021; }
+.app-shell .bike-option { border-color: #e0e8f2; background: #f8fbff; }
+.app-shell .bike-option-active { border-color: #f37021; background: #fff7f0; }
+.app-shell .sms-message-card { border-left: 4px solid #f2ab76; }
+.app-shell .sms-message-card:has(.status-delivered) { border-color: #d9ecdf; border-left-color: #72b990; background: #fcfffd; }
+.app-shell .sms-message-card:has(.status-picked_up) .sms-sender-icon { color: #7655ae; background: #f1eafa; }
+.app-shell .sms-message-heading h3 { font-size: 14px; }
+.app-shell .sms-message-heading time { font-size: 11px; }
+.app-shell .sms-message-body { font-size: 14px; line-height: 1.8; }
+.app-shell .sms-message-footer>.muted { font-size: 11px; }
+.app-shell .sms-message-actions .button { font-size: 12px; }
+.app-shell .dispatch-location-hint, .app-shell .store-location-hint { font-size: 12px; }
+.app-shell .dispatch-location-actions .button, .app-shell .store-location-actions .button { font-size: 12px; }
+
+/* Match the administrator and sign-in pages to the same palette. */
+.admin-shell .admin-stat { --admin-accent: #b4612e; --admin-tint: #fff6ed; --admin-border: #f0dfcd; background: var(--admin-tint); border-color: var(--admin-border); justify-items: center; text-align: center; gap: 11px; }
+.admin-shell .admin-stat:nth-child(2) { --admin-accent: #7358b0; --admin-tint: #f7f2ff; --admin-border: #e5dcf4; }
+.admin-shell .admin-stat:nth-child(3) { --admin-accent: #2b8367; --admin-tint: #effaf4; --admin-border: #d4eadd; }
+.admin-shell .admin-stat:nth-child(4) { --admin-accent: #3b70a4; --admin-tint: #eff6ff; --admin-border: #d8e5f5; }
+.admin-shell .admin-stat-icon { background: #fff; color: var(--admin-accent); border: 1px solid var(--admin-border); }
+.admin-shell .admin-stat-count { font-size: 26px; line-height: 1.2; letter-spacing: -.035em; }
+.admin-shell .admin-stat-label { color: #57667b; font-size: 11px; line-height: 1.55; justify-content: center; }
+.admin-shell .admin-stat-label svg { flex-shrink: 0; }
+.admin-shell .admin-person h3 { font-size: 15px; line-height: 1.5; }
+.admin-shell .admin-person p { font-size: 12px; line-height: 1.6; }
+.admin-shell .admin-person small { font-size: 11px; }
+.admin-shell .admin-store-copy p, .admin-shell .admin-feedback>p { font-size: 13px; line-height: 1.8; }
+.admin-shell .admin-delivery-route { font-size: 13px; line-height: 1.7; }
+.login-screen { background: linear-gradient(135deg, #fff3e7, #f2f5fe); }
+.login-card { border: 1px solid #e5e9f1; }
+.login-card .login-mode-heading h2 { letter-spacing: -.025em; }
+.login-card .login-primary, .login-card .login-secondary { border-radius: 12px; }
+
+@media (max-width: 959px) {
+  .app-shell .rider-stat-grid, .app-shell .merchant-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .app-shell .rider-stat-grid .rider-fee-card { grid-column: 1 / -1; }
+  .app-shell .merchant-stat-grid .metric-card:last-child { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; align-items: center; }
+  .merchant-stat-grid .metric-card:last-child .metric-heading { grid-column: 1; grid-row: 1; }
+  .merchant-stat-grid .metric-card:last-child .metric-value { grid-column: 2; grid-row: 1 / 3; margin: 0; }
+  .merchant-stat-grid .metric-card:last-child .metric-detail { grid-column: 1; grid-row: 2; margin: 6px 0 0; }
+}
+@media (max-width: 719px) {
+  .app-shell .workspace { padding-top: 22px; padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+  .app-shell .page-heading { padding: 18px 16px; border-radius: 17px; gap: 12px; align-items: flex-start; }
+  .app-shell .page-heading h1, .app-shell .merchant-welcome h1 { font-size: 22px; line-height: 1.3; }
+  .app-shell .page-heading p { font-size: 12px; line-height: 1.7; margin-top: 8px; }
+  .app-shell .page-heading .eyebrow { font-size: 9px; line-height: 1.6; margin: 0 0 8px; }
+  .app-shell .page-heading>.button { font-size: 11px; padding: 10px 11px; min-height: 42px; }
+  .app-shell .page-heading>.status-badge { font-size: 9px; padding: 6px 8px; }
+  .app-shell .rider-page-heading { flex-wrap: wrap; }
+  .app-shell .rider-page-heading>.rider-availability { flex-basis: 100%; justify-content: space-between; }
+  .app-shell .rider-availability .button { min-height: 42px; padding: 10px 13px; font-size: 12px; }
+  .app-shell .section-heading h2 { font-size: 19px; }
+  .app-shell .section-heading p { font-size: 12px; }
+  .app-shell .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .app-shell .action-card { align-items: flex-start; text-align: left; min-height: 142px; padding: 19px 16px; border-radius: 16px; }
+  .app-shell .action-icon { width: 40px; height: 40px; margin: 0 0 14px; }
+  .app-shell .action-icon svg { width: 24px; height: 24px; }
+  .app-shell .action-label { font-size: 13px; line-height: 1.5; }
+  .app-shell .action-description { font-size: 11px; line-height: 1.6; max-width: none; margin-top: 6px; }
+  .app-shell .action-request-badge { top: 12px; right: 11px; }
+  .app-shell .metric-card { padding: 17px; }
+  .metric-icon { width: 28px; height: 28px; border-radius: 9px; }
+  .metric-icon svg { width: 16px; height: 16px; }
+  .metric-heading { gap: 8px; }
+  .metric-label { font-size: 12px; line-height: 1.6; }
+  .metric-value { font-size: 30px; margin: 15px 0 7px; }
+  .metric-detail { font-size: 11px; line-height: 1.6; }
+  .metric-money { font-size: 25px; }
+  .metric-money small { font-size: 13px; }
+  .app-shell .notice { font-size: 12px; padding: 15px; }
+  .app-shell .field input, .app-shell .field select, .app-shell .field textarea { font-size: 16px; }
+  .app-shell .field-label { font-size: 12px; }
+  .app-shell .profile-hero { padding: 23px; }
+  .app-shell .profile-hero h2 { font-size: 22px; }
+  .app-shell .profile-form { padding: 21px; }
+  .app-shell .order-card .row { align-items: flex-start; }
+  .app-shell .order-card .status-badge { font-size: 9px; padding: 5px 8px; }
+  .app-shell .store-body { padding: 18px; }
+  .app-shell .card-actions .button { font-size: 12px; }
+  .app-shell .bottom-nav { min-height: 76px; }
+  .app-shell .bottom-nav button { font-size: 11px; line-height: 1.3; min-height: 53px; }
+  .app-shell .bottom-nav svg { width: 22px; height: 22px; }
+  .app-shell .toast { font-size: 12px; line-height: 1.7; bottom: calc(91px + env(safe-area-inset-bottom)); overflow-wrap: anywhere; }
+  .admin-shell .workspace { padding-bottom: calc(164px + env(safe-area-inset-bottom)); }
+  .admin-shell .admin-stat-label { font-size: 10px; }
+  .admin-shell .admin-stat-count { font-size: 24px; }
+}
+@media (max-width: 479px) {
+  .app-shell .store-grid, .admin-shell .admin-store-grid { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .sms-date-filters { grid-template-columns: minmax(0, 1fr); gap: 13px; }
+  .app-shell .sms-message-header { gap: 9px; }
+  .app-shell .sms-sender-icon { width: 35px; height: 35px; border-radius: 10px; }
+  .app-shell .sms-message-heading time { font-size: 10px; }
+  .app-shell .profile-hero { padding: 21px; }
+  .app-shell .metric-card { padding: 15px; }
+  .metric-money { font-size: 24px; gap: 5px; }
+  .metric-rating { gap: 5px; }
+  .metric-rating small { font-size: 12px; }
+}
+@media (max-width: 389px) {
+  .app-shell .workspace { padding-inline: 18px; }
+  .app-shell .page-heading h1, .app-shell .merchant-welcome h1 { font-size: 20px; }
+  .app-shell .action-card { padding: 17px 14px; }
+  .app-shell .action-label { font-size: 12px; }
+  .app-shell .action-description { font-size: 10px; }
+  .app-shell .rider-stat-grid, .app-shell .merchant-stat-grid { gap: 10px; }
+  .app-shell .metric-card { padding: 14px; }
+  .metric-label { font-size: 11px; }
+  .metric-detail { font-size: 10px; }
+  .metric-money { font-size: 23px; }
+  .app-shell .bottom-nav button { font-size: 10px; }
+  .login-card { border: 0; }
+}

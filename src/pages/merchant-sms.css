@@ -1,0 +1,4 @@
+.merchant-sms-heading h1 { font-size: 18px; line-height: 1.4; overflow-wrap: anywhere; }
+@media (max-width: 719px) {
+  .merchant-sms-heading h1 { font-size: 17px; }
+}

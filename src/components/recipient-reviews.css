@@ -1,0 +1,26 @@
+.recipient-feedback-panel { padding: 22px; border: 1px solid #e7daf5; border-radius: 17px; background: linear-gradient(125deg, #fbf7ff, #fffaf3); display: grid; gap: 15px; min-width: 0; margin-top: 22px; }
+.recipient-feedback-panel > header { display: flex; align-items: center; gap: 12px; }
+.recipient-feedback-icon { width: 47px; height: 47px; display: grid; place-items: center; border-radius: 14px; flex-shrink: 0; color: #9160b4; background: #f0e5ff; }
+.recipient-feedback-panel h2 { font-size: 18px; color: #4f3a67; line-height: 1.5; }
+.recipient-feedback-panel header p { font-size: 12px; color: #766784; line-height: 1.75; margin-top: 3px; }
+.recipient-feedback-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.recipient-feedback-totals > div { padding: 15px; border-radius: 12px; border: 1px solid #e9def1; background: #fff; min-width: 0; }
+.recipient-feedback-totals span { display: block; font-size: 11px; color: #726780; }
+.recipient-feedback-totals strong { display: flex; align-items: baseline; gap: 6px; font-size: 26px; color: #634983; margin-top: 6px; }
+.recipient-feedback-totals small { font-size: 12px; color: #8b8195; font-weight: 500; }
+.recipient-feedback-count { font-size: 11px; color: #716381; }
+.recipient-feedback-list { display: grid; gap: 9px; }
+.recipient-feedback-list article { padding: 13px; border: 1px solid #e8e1ed; border-radius: 11px; background: #fff; min-width: 0; }
+.recipient-feedback-list article > div { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.recipient-feedback-list strong { font-size: 12px; color: #516177; overflow-wrap: anywhere; }
+.recipient-feedback-list span { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: #93662b; }
+.recipient-feedback-list p { font-size: 12px; line-height: 1.8; color: #64718a; margin-top: 8px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.recipient-feedback-list time { font-size: 10px; color: #788293; display: block; margin-top: 6px; }
+.recipient-feedback-empty { font-size: 12px; line-height: 1.8; color: #7b6d87; }
+.recipient-feedback-panel > .button { justify-self: start; min-height: 44px; font-size: 12px; }
+@media (max-width: 389px) {
+  .recipient-feedback-panel { padding: 17px; }
+  .recipient-feedback-panel h2 { font-size: 16px; }
+  .recipient-feedback-totals { gap: 9px; }
+  .recipient-feedback-totals > div { padding: 12px; }
+}

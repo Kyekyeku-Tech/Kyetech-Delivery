@@ -1,0 +1,105 @@
+.modal:has(.customer-experience) { max-width: 720px; max-height: 94dvh; display: flex; flex-direction: column; overflow: hidden; }
+.modal:has(.customer-experience)::before, .modal:has(.customer-experience) .modal-header { flex-shrink: 0; }
+.modal:has(.customer-experience) .modal-header { padding: 20px 24px; align-items: center; }
+.modal:has(.customer-experience) .modal-header h2 { font-size: 21px; }
+.modal:has(.customer-experience) .modal-body { background: #f8f9fd; padding: 24px; overflow-y: auto; min-height: 0; }
+.customer-experience { --experience-accent: #9a5d22; --experience-tint: #fff7ec; --experience-border: #efdec8; --experience-start: #ef8937; --experience-end: #f2ad55; --experience-ink: #603313; display: grid; gap: 16px; min-width: 0; }
+.customer-feedback { --experience-accent: #705ab3; --experience-tint: #f5f0fd; --experience-border: #e3d9f2; --experience-start: #7656b8; --experience-end: #4075ad; --experience-ink: #fff; }
+.experience-hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-radius: 18px; padding: 25px; color: var(--experience-ink); background: linear-gradient(120deg, var(--experience-start), var(--experience-end)); overflow: hidden; }
+.experience-hero > div { min-width: 0; }
+.experience-eyebrow { display: block; font-size: 10px; line-height: 1.6; font-weight: 650; letter-spacing: .08em; margin-bottom: 10px; }
+.experience-hero h2 { font-size: 26px; font-weight: 750; letter-spacing: -.025em; line-height: 1.3; }
+.experience-hero p { font-size: 12px; line-height: 1.8; margin-top: 9px; color: inherit; }
+.experience-hero-icon { display: grid; place-items: center; width: 70px; height: 70px; border-radius: 22px; border: 1px solid #ffffff40; background: #ffffff1a; box-shadow: 0 0 0 10px #ffffff09; flex-shrink: 0; }
+.experience-hero-orange .experience-hero-icon svg { fill: #ffffff22; }
+.experience-panel { border: 1px solid var(--experience-border); border-radius: 17px; background: #fff; padding: 20px; box-shadow: 0 4px 16px #3b385305; min-width: 0; }
+.app-shell .customer-experience .field-label { font-size: 13px; color: #455168; font-weight: 600; }
+.app-shell .customer-experience .field textarea { min-width: 0; width: 100%; border-radius: 12px; border-color: var(--experience-border); background: #fcfcff; padding: 13px; min-height: 112px; font-size: 14px; line-height: 1.75; resize: vertical; }
+.app-shell .customer-feedback .field textarea { min-height: 150px; }
+.app-shell .customer-experience .field textarea:focus { border-color: var(--experience-accent); box-shadow: 0 0 0 3px var(--experience-tint); outline: 0; }
+.experience-field-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 12px; color: #69758b; font-size: 11px; line-height: 1.6; margin: 8px 0 17px; }
+.experience-field-footer > span:last-child { color: var(--experience-accent); white-space: nowrap; }
+.app-shell .customer-experience .experience-submit { width: 100%; min-height: 50px; border-radius: 12px; gap: 9px; color: var(--experience-ink); background: linear-gradient(110deg, var(--experience-start), var(--experience-end)); border-color: transparent; font-size: 13px; }
+.experience-error { color: #b54239; border: 1px solid #f0c9c3; background: #fff3f1; padding: 12px; border-radius: 10px; font-size: 12px; line-height: 1.6; margin-bottom: 14px; overflow-wrap: anywhere; }
+.experience-note { display: flex; gap: 10px; align-items: flex-start; background: #edf5ff; border: 1px solid #dce8f7; padding: 14px; border-radius: 13px; color: #5680a5; }
+.experience-note svg { flex-shrink: 0; margin-top: 1px; }
+.experience-note p { font-size: 12px; line-height: 1.7; }
+.experience-rating-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.experience-rating-totals > div { display: flex; align-items: center; gap: 10px; background: #f5f0fd; border: 1px solid #e4d9f4; border-radius: 14px; padding: 15px; min-width: 0; color: #8063b4; }
+.experience-rating-totals > div:last-child { background: #edf8f1; border-color: #d4e9dc; color: #3b946d; }
+.experience-total-icon { width: 34px; height: 34px; display: grid; place-items: center; background: #fff; border-radius: 11px; flex-shrink: 0; }
+.experience-rating-totals > div > div { display: grid; gap: 2px; min-width: 0; }
+.experience-rating-totals strong { color: #354059; font-size: 21px; line-height: 1.2; }
+.experience-rating-totals div > span:not(.experience-total-icon) { font-size: 11px; line-height: 1.6; }
+.experience-rating-filters { display: flex; gap: 7px; flex-wrap: wrap; }
+.experience-filter { min-height: 44px; padding: 9px 14px; border: 1px solid #e2e6ee; border-radius: 11px; background: #fff; color: #748196; font-size: 12px; font-weight: 550; }
+.experience-filter-active { color: var(--experience-accent); border-color: var(--experience-border); background: var(--experience-tint); }
+.experience-rating-list { display: grid; gap: 10px; }
+.experience-rating-trip { min-width: 0; border: 1px solid #efe2d0; border-radius: 14px; background: #fff; padding: 15px; }
+.experience-trip-rated { border-color: #d7e9dd; background: #fcfffd; }
+.experience-trip-heading { display: flex; align-items: center; gap: 10px; }
+.experience-trip-heading > .avatar { color: #af743a; background: #fff2e0; flex-shrink: 0; }
+.experience-trip-heading > div { flex: 1; min-width: 0; }
+.experience-trip-heading h3 { color: #344159; font-size: 14px; line-height: 1.5; font-weight: 650; overflow-wrap: anywhere; }
+.experience-trip-heading small { font-size: 10px; color: #8c96a6; line-height: 1.6; }
+.app-shell .experience-trip-heading .experience-rate-trip { color: #b67832; background: #fff6e8; border-color: #eddbc2; font-size: 11px; padding: 8px 10px; gap: 5px; flex-shrink: 0; }
+.experience-trip-route { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8390a3; margin-top: 11px; min-width: 0; }
+.experience-trip-route svg { color: #ba996f; flex-shrink: 0; }
+.experience-trip-route > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.experience-saved-rating { display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 650; color: #a9742e; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; max-width: 70px; }
+.experience-saved-rating svg { fill: #f8bc4c33; }
+.experience-saved-rating > span { color: #508b6b; font-size: 10px; font-weight: 500; flex-basis: 100%; text-align: right; }
+.experience-empty { text-align: center; padding: 24px 18px; border-radius: 15px; border: 1px solid var(--experience-border); background: #fff; }
+.experience-empty > span { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; margin: 0 auto 14px; background: var(--experience-tint); color: var(--experience-accent); }
+.experience-empty h3 { color: #3a465c; font-size: 17px; line-height: 1.5; }
+.experience-empty p { font-size: 12px; color: #8390a3; line-height: 1.75; margin-top: 6px; }
+.experience-rider-summary { background: linear-gradient(120deg, #fff2e1, #f7f2ff); border: 1px solid #eddecf; border-radius: 18px; padding: 21px; }
+.experience-rider-summary > .experience-eyebrow { color: #a87a48; margin-bottom: 13px; }
+.experience-rider-summary > div:first-of-type { display: flex; gap: 12px; align-items: center; }
+.experience-rider-summary > div:first-of-type > div { min-width: 0; }
+.experience-rider-summary .avatar { flex-shrink: 0; background: #fff; color: #c68438; box-shadow: 0 0 0 3px #fff8f0; }
+.experience-rider-summary h2 { font-size: 20px; line-height: 1.4; letter-spacing: -.02em; color: #475069; overflow-wrap: anywhere; }
+.experience-rider-summary p { font-size: 12px; color: #92909d; line-height: 1.6; margin-top: 4px; }
+.experience-rating-route { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 15px; margin-top: 16px; border-top: 1px solid #eaddd780; }
+.experience-rating-route p { min-width: 0; margin-top: 0; }
+.experience-rating-route span { display: block; font-size: 10px; color: #a98a6c; margin-bottom: 3px; }
+.experience-rating-route strong { font-weight: 550; color: #6c6680; font-size: 12px; overflow-wrap: anywhere; }
+.experience-star-section { text-align: center; margin-bottom: 21px; }
+.experience-star-section h3 { font-size: 13px; font-weight: 600; color: #626c80; margin-bottom: 13px; }
+.customer-rating-form .rating-stars { justify-content: center; gap: 8px; }
+.customer-rating-form .star-button { min-width: 44px; width: 48px; min-height: 48px; border: 1px solid #eee7df; background: #fbfaf8; border-radius: 12px; display: grid; place-items: center; padding: 6px; color: #d5d1cc; }
+.customer-rating-form .star-button.star-active { border-color: #f4d193; background: #fff4db; color: #eca62b; }
+.customer-rating-form .star-active svg { fill: #f5bd4e; }
+.customer-rating-form .star-button:focus-visible { outline: 2px solid #e6a02b; outline-offset: 3px; }
+.experience-stars-busy { opacity: .6; }
+.experience-rating-caption { display: grid; gap: 2px; font-size: 14px; font-weight: 650; color: #b8812f; margin-top: 11px; }
+.experience-rating-caption span { font-size: 11px; font-weight: 500; color: #a69b8a; }
+@media (max-width: 719px) {
+  .modal:has(.customer-experience) .modal-header { padding: 17px 20px; }
+  .modal:has(.customer-experience) .modal-body { padding: 18px; }
+  .experience-hero { padding: 21px; gap: 16px; }
+  .experience-hero h2 { font-size: 23px; }
+  .experience-hero-icon { width: 56px; height: 56px; border-radius: 18px; box-shadow: 0 0 0 6px #ffffff09; }
+  .experience-hero-icon svg { width: 29px; height: 29px; }
+  .experience-panel { padding: 17px; }
+  .app-shell .customer-experience .field textarea { font-size: 16px; }
+}
+@media (max-width: 389px) {
+  .experience-hero { padding: 19px; }
+  .experience-hero h2 { font-size: 22px; }
+  .experience-hero-icon { display: none; }
+  .experience-rating-totals { gap: 9px; }
+  .experience-rating-totals > div { padding: 12px; gap: 7px; }
+  .experience-total-icon { width: 28px; height: 28px; border-radius: 9px; }
+  .experience-rating-totals div > span:not(.experience-total-icon) { font-size: 10px; }
+  .experience-trip-heading { flex-wrap: wrap; gap: 8px; }
+  .experience-trip-heading h3 { font-size: 13px; }
+  .experience-trip-heading .experience-rate-trip { margin-left: auto; }
+  .experience-rider-summary { padding: 17px; }
+  .experience-rider-summary h2 { font-size: 18px; }
+  .experience-rating-route { gap: 10px; }
+  .experience-panel { padding: 15px; }
+  .customer-rating-form .rating-stars { gap: 5px; }
+  .customer-rating-form .star-button { width: 44px; }
+  .customer-rating-form .star-button svg { width: 26px; height: 26px; }
+}

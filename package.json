@@ -1,0 +1,27 @@
+{
+  "name": "kyetech-delivery",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.js",
+    "start": "node server/index.mjs",
+    "check:sms": "node scripts/check-sms.mjs --live"
+  },
+  "dependencies": {
+    "@firebase/app": "^0.16.2",
+    "dotenv": "^17.2.3",
+    "firebase": "^12.19.0",
+    "firebase-admin": "^14.5.1",
+    "leaflet": "^1.9.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "vite": "^7.0.0"
+  }
+}

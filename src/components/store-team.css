@@ -1,0 +1,29 @@
+.store-team-panel { max-width: 800px; background: #f6f2ff; border: 1px solid #e1d7f4; border-radius: 18px; padding: 24px; margin-top: 24px; min-width: 0; }
+.store-team-heading { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 20px; }
+.store-team-heading>span, .store-invitation>span { width: 40px; height: 40px; border-radius: 12px; background: #fff; border: 1px solid #dfd6f1; display: grid; place-items: center; color: #7656ad; flex-shrink: 0; }
+.store-team-heading h2 { font-size: 20px; }
+.store-team-heading p, .store-invitation p { font-size: 13px; line-height: 1.7; color: #6d6282; margin-top: 5px; }
+.store-team-invite { display: flex; align-items: flex-end; gap: 12px; }
+.store-team-invite .field { flex: 1; min-width: 0; }
+.store-team-invite>.button { min-height: 48px; flex-shrink: 0; }
+.store-team-note { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #706485; line-height: 1.8; margin-top: 16px; }
+.store-team-note svg { margin-top: 3px; }
+.store-team-list { display: grid; gap: 10px; margin-top: 20px; }
+.store-team-person { display: flex; align-items: center; gap: 12px; padding: 15px; background: #fff; border: 1px solid #e4ddf0; border-radius: 12px; min-width: 0; flex-wrap: wrap; }
+.store-team-person>div { flex: 1; min-width: 140px; }
+.store-team-person strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.store-team-person small { display: block; margin-top: 5px; font-size: 12px; color: #867b94; overflow-wrap: anywhere; }
+.store-team-person .button { font-size: 12px; }
+.store-team-empty { font-size: 13px; color: #8c7fa3; }
+.merchant-store-access { background: #f6f2ff; border: 1px solid #e0d6f2; border-radius: 16px; padding: 18px; margin-bottom: 24px; display: grid; gap: 16px; min-width: 0; }
+.store-invitation { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.store-invitation>div { flex: 1; min-width: 150px; }
+.store-invitation h3 { font-size: 15px; overflow-wrap: anywhere; }
+.store-invitation .store-invitation-actions { display: flex; flex-wrap: wrap; gap: 10px; flex-basis: 100%; }
+.store-team-panel .form-error { margin-top: 14px; }
+@media (max-width: 479px) {
+  .store-team-panel { padding: 18px; border-radius: 16px; }
+  .store-team-invite { flex-direction: column; align-items: stretch; }
+  .store-team-person .button { flex-basis: 100%; }
+  .store-invitation-actions .button { flex: 1; }
+}

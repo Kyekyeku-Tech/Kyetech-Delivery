@@ -1,0 +1,7 @@
+.platform-error-notice { flex-wrap: wrap; align-items: center; }
+.platform-error-copy { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.platform-error-retry { flex-shrink: 0; }
+@media (max-width: 480px) {
+  .platform-error-copy { flex-basis: 100%; }
+  .platform-error-retry { min-height: 44px; }
+}

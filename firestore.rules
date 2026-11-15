@@ -1,0 +1,256 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function enabledAdmin() { return active() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true; }
+    function validAdminOtpClaim() {
+      return signedIn() && request.auth.token.get('adminOtpSessionId','') is string && request.auth.token.get('adminOtpSessionId','').matches('^[a-f0-9]{64}$') && request.auth.token.get('firebase',{}).get('sign_in_provider','') == 'custom';
+    }
+    function activeAdminOtpSession() {
+      let sid = request.auth.token.adminOtpSessionId;
+      let session = get(/databases/$(database)/documents/adminOtpSessions/$(sid)).data;
+      return exists(/databases/$(database)/documents/adminOtpSessions/$(sid)) && session.uid == request.auth.uid && session.status == 'active' && session.authTime is int && request.auth.token.get('auth_time',null) is int && session.authTime == request.auth.token.auth_time && session.expiresAt is timestamp && session.expiresAt > request.time;
+    }
+    function isAdmin() { return enabledAdmin() && validAdminOtpClaim() && activeAdminOtpSession(); }
+    function currentUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function active() { return signedIn() && currentUser().get('accountStatus','active') == 'active'; }
+    function hasRole(value) { return active() && currentUser().role == value; }
+    function storeMember(storeId) { return active() && exists(/databases/$(database)/documents/storeMembers/$(storeId + '_' + request.auth.uid)) && get(/databases/$(database)/documents/storeMembers/$(storeId + '_' + request.auth.uid)).data.enabled == true && get(/databases/$(database)/documents/storeInvites/$(get(/databases/$(database)/documents/storeMembers/$(storeId + '_' + request.auth.uid)).data.inviteId)).data.status == 'accepted' && get(/databases/$(database)/documents/users/$(storeId)).data.get('accountStatus','active') == 'active'; }
+    function approvedRider() { return hasRole('rider') && currentUser().get('approvalStatus','pending') == 'approved'; }
+    function text(value, limit) { return value is string && value.size() > 0 && value.size() <= limit; }
+    function optionalText(value, limit) { return value is string && value.size() <= limit; }
+    function phone(value) { return value is string && value.matches('^\\+233[235][0-9]{8}$'); }
+    function image(value) { return value is string && value.size() <= 2000 && (value == '' || value.matches('^https?://[^\\s]+$') || value.matches('^/images/[A-Za-z0-9_-]+\\.[A-Za-z0-9]+$')); }
+    function validModeration(d) {
+      return d.get('accountStatus','active') in ['active','suspended'] && d.get('approvalStatus','pending') in ['pending','approved','rejected','suspended'] && optionalText(d.get('reviewNote',''),1000) && optionalText(d.get('reviewedBy',''),128) && (d.get('reviewedAt',null) == null || d.reviewedAt is timestamp);
+    }
+    function initialModeration(d, approval) { return d.accountStatus == 'active' && d.approvalStatus == approval && d.reviewNote == '' && d.reviewedBy == '' && d.reviewedAt == null; }
+    function unchangedModeration(old, next, approval) {
+      return next.get('accountStatus','active') == old.get('accountStatus','active') && next.get('approvalStatus',approval) == old.get('approvalStatus',approval) && next.get('reviewNote','') == old.get('reviewNote','') && next.get('reviewedBy','') == old.get('reviewedBy','') && next.get('reviewedAt',null) == old.get('reviewedAt',null);
+    }
+    function validProfile(d) {
+      return d.keys().hasAll(['name','email','phone','role','city','photoUrl','bikeBrand','bikeModel','plate','online','createdAt','updatedAt']) && d.keys().hasOnly(['name','email','phone','role','city','photoUrl','bikeBrand','bikeModel','plate','online','createdAt','updatedAt','accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt']) && text(d.name,100) && text(d.email,254) && phone(d.phone) && d.role in ['customer','rider','merchant'] && text(d.city,100) && image(d.photoUrl) && optionalText(d.bikeBrand,40) && optionalText(d.bikeModel,100) && optionalText(d.plate,40) && d.online is bool && d.createdAt is timestamp && d.updatedAt == request.time && validModeration(d) && (d.role == 'rider' || (d.online == false && d.bikeBrand == '' && d.bikeModel == '' && d.plate == '')) && (d.online == false || (d.get('accountStatus','active') == 'active' && d.get('approvalStatus','pending') == 'approved' && d.bikeBrand in ['Apsonic','Royal','Boxer','Other'] && text(d.bikeModel,100) && text(d.plate,40)));
+    }
+    function riderMatchesUser(r,u) {
+      return r.keys().hasAll(['name','phone','city','photoUrl','bikeBrand','bikeModel','plate','online','updatedAt']) && r.keys().hasOnly(['name','phone','city','photoUrl','bikeBrand','bikeModel','plate','online','updatedAt','accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt']) && r.name == u.name && r.phone == u.phone && r.city == u.city && r.photoUrl == u.photoUrl && r.bikeBrand == u.bikeBrand && r.bikeModel == u.bikeModel && r.plate == u.plate && r.online == u.online && r.updatedAt == request.time && unchangedModeration(u,r,'pending');
+    }
+    function profileMirror(uid,d) { return d.role != 'rider' || riderMatchesUser(getAfter(/databases/$(database)/documents/riders/$(uid)).data,d); }
+    function adminReview(old,next) {
+      return isAdmin() && next.reviewedBy == request.auth.uid && next.reviewedAt == request.time && next.updatedAt == request.time && next.diff(old).affectedKeys().hasOnly(['accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt','online','updatedAt']) && validModeration(next);
+    }
+    match /admins/{uid} {
+      allow get: if self(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && uid != request.auth.uid && exists(/databases/$(database)/documents/users/$(uid)) && request.resource.data.keys().hasAll(['enabled','updatedBy','updatedAt']) && request.resource.data.keys().hasOnly(['enabled','updatedBy','updatedAt']) && request.resource.data.enabled is bool && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+    match /adminOtpSessions/{sid} {
+      // Only the server grants access; this read lets the signed-in session show its gate state.
+      allow get: if enabledAdmin() && validAdminOtpClaim() && sid == request.auth.token.adminOtpSessionId && (!exists(/databases/$(database)/documents/adminOtpSessions/$(sid)) || resource.data.uid == request.auth.uid);
+      allow list, create, update, delete: if false;
+    }
+    match /adminOtpChallenges/{challengeId} { allow read, write: if false; }
+    match /adminOtpThrottle/{throttleId} { allow read, write: if false; }
+    match /adminOtpCooldowns/{cooldownId} { allow read, write: if false; }
+    match /users/{uid} {
+      allow get: if self(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if self(uid) && validProfile(request.resource.data) && request.resource.data.email == request.auth.token.email && request.resource.data.createdAt == request.time && initialModeration(request.resource.data, request.resource.data.role == 'rider' ? 'pending' : 'approved') && profileMirror(uid,request.resource.data);
+      allow update: if validProfile(request.resource.data) && profileMirror(uid,request.resource.data) && ((self(uid) && active() && unchangedModeration(resource.data,request.resource.data,resource.data.role == 'rider' ? 'pending' : 'approved') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','phone','city','photoUrl','bikeBrand','bikeModel','plate','online','updatedAt','accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt'])) || adminReview(resource.data,request.resource.data) || (isAdmin() && unchangedModeration(resource.data,request.resource.data,resource.data.role == 'rider' ? 'pending' : 'approved') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','phone','city','photoUrl','bikeBrand','bikeModel','plate','online','updatedAt','accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt'])));
+      allow delete: if false;
+    }
+    match /riders/{uid} {
+      allow read: if self(uid) || isAdmin() || (active() && resource.data.approvalStatus == 'approved' && resource.data.accountStatus == 'active');
+      allow create, update: if (isAdmin() || (self(uid) && active())) && getAfter(/databases/$(database)/documents/users/$(uid)).data.role == 'rider' && riderMatchesUser(request.resource.data,getAfter(/databases/$(database)/documents/users/$(uid)).data);
+      allow delete: if false;
+    }
+    function validLocation(value) {
+      return value == null || (value is map && value.keys().hasAll(['latitude','longitude']) && value.keys().hasOnly(['latitude','longitude']) && value.latitude is number && value.longitude is number && value.latitude >= -90 && value.latitude <= 90 && value.longitude >= -180 && value.longitude <= 180);
+    }
+    function validOrderPickup(d) {
+      let location = d.get('pickupLocation',null);
+      return validLocation(location) && (d.merchantId == '' ? location == null : (!('pickupLocation' in d) || location == get(/databases/$(database)/documents/stores/$(d.merchantId)).data.get('location',null)));
+    }
+    function merchantDeliveryManager(storeId) { return hasRole('merchant') && (self(storeId) || storeMember(storeId)); }
+    function merchantOrderManager(d) { return d.creatorRole == 'merchant' && d.creatorId == d.merchantId && merchantDeliveryManager(d.merchantId); }
+    function validOrderSender(d) {
+      return d.get('createdBy',d.creatorId) == request.auth.uid && text(d.customerName,100) && phone(d.customerPhone) && ((d.creatorRole == 'customer' && d.creatorId == request.auth.uid && d.customerName == currentUser().name && d.customerPhone == currentUser().phone) || (d.creatorRole == 'merchant' && d.creatorId == d.merchantId && merchantDeliveryManager(d.merchantId) && ((!('createdBy' in d) && self(d.creatorId) && d.customerName == currentUser().name && d.customerPhone == currentUser().phone) || ('createdBy' in d && d.customerName == get(/databases/$(database)/documents/stores/$(d.merchantId)).data.name && d.customerPhone == get(/databases/$(database)/documents/stores/$(d.merchantId)).data.phone))));
+    }
+    function validStore(d) {
+      return d.keys().hasAll(['ownerId','name','category','address','phone','imageUrl','description','open','createdAt','updatedAt']) && d.keys().hasOnly(['ownerId','name','category','address','location','gpsAddress','phone','imageUrl','description','open','createdAt','updatedAt','accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt']) && text(d.name,100) && text(d.category,60) && text(d.address,250) && phone(d.phone) && image(d.imageUrl) && optionalText(d.description,1000) && d.open is bool && d.createdAt is timestamp && d.updatedAt == request.time && validLocation(d.get('location',null)) && optionalText(d.get('gpsAddress',''),250) && (d.get('location',null) != null || d.get('gpsAddress','') == '') && validModeration(d);
+    }
+    match /stores/{uid} {
+      allow read: if self(uid) || isAdmin() || (active() && resource.data.accountStatus == 'active' && (resource.data.approvalStatus == 'approved' || storeMember(uid)));
+      allow create: if self(uid) && hasRole('merchant') && validStore(request.resource.data) && request.resource.data.ownerId == uid && request.resource.data.createdAt == request.time && initialModeration(request.resource.data,'pending');
+      allow update: if validStore(request.resource.data) && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.createdAt == resource.data.createdAt && ((self(uid) && hasRole('merchant') && unchangedModeration(resource.data,request.resource.data,'pending') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','category','address','location','gpsAddress','phone','imageUrl','description','open','updatedAt','accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt'])) || adminReview(resource.data,request.resource.data) || (isAdmin() && unchangedModeration(resource.data,request.resource.data,'pending') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','category','address','location','gpsAddress','phone','imageUrl','description','open','updatedAt','accountStatus','approvalStatus','reviewNote','reviewedBy','reviewedAt'])));
+      allow delete: if false;
+    }
+    function listingStore(storeId) { return get(/databases/$(database)/documents/stores/$(storeId)).data; }
+    function listingOwner(storeId) {
+      return hasRole('merchant') && self(storeId) && listingStore(storeId).ownerId == request.auth.uid && listingStore(storeId).get('accountStatus','active') == 'active';
+    }
+    function listingTeam(storeId) {
+      return hasRole('merchant') && listingStore(storeId).get('accountStatus','active') == 'active' && storeMember(storeId);
+    }
+    function publicListingStore(storeId) {
+      let store = listingStore(storeId);
+      return active() && store.approvalStatus == 'approved' && store.get('accountStatus','active') == 'active' && get(/databases/$(database)/documents/users/$(store.ownerId)).data.get('accountStatus','active') == 'active';
+    }
+    function validStoreListing(d) {
+      return d.keys().hasAll(['kind','name','category','description','price','imageUrl','available','createdAt','updatedAt']) && d.keys().hasOnly(['kind','name','category','description','price','imageUrl','available','createdAt','updatedAt']) && d.kind in ['product','menu'] && text(d.name,100) && text(d.category,60) && optionalText(d.description,1000) && d.price is number && d.price >= 0 && d.price <= 100000 && math.abs(d.price * 100 - math.floor(d.price * 100 + 0.5)) < 0.000001 && image(d.imageUrl) && d.available is bool && d.createdAt is timestamp && d.updatedAt == request.time;
+    }
+    match /stores/{storeId}/listings/{listingId} {
+      allow read: if listingOwner(storeId) || listingTeam(storeId) || (publicListingStore(storeId) && resource.data.available == true);
+      allow create: if (listingOwner(storeId) || listingTeam(storeId)) && validStoreListing(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if (listingOwner(storeId) || listingTeam(storeId)) && validStoreListing(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if listingOwner(storeId) || listingTeam(storeId);
+    }
+    function validNewOrder(d) {
+      return d.keys().hasAll(['creatorId','creatorRole','customerName','customerPhone','pickup','dropoff','recipientName','recipientPhone','packageDescription','fee','preferredRiderId','merchantId','status','riderId','riderName','customerRating','riderRating','customerRatingComment','riderRatingComment','customerRatedAt','riderRatedAt','assignedAt','pickedUpAt','deliveredAt','createdAt','updatedAt']) && d.keys().hasOnly(['creatorId','createdBy','creatorRole','customerName','customerPhone','pickup','pickupLocation','dropoff','dropoffLocation','recipientName','recipientPhone','packageDescription','fee','preferredRiderId','merchantId','status','riderId','riderName','customerRating','riderRating','customerRatingComment','riderRatingComment','customerRatedAt','riderRatedAt','assignedAt','pickedUpAt','deliveredAt','createdAt','updatedAt']) && validOrderPickup(d) && validLocation(d.get('dropoffLocation',null)) && d.creatorRole == currentUser().role && d.creatorRole in ['customer','merchant'] && validOrderSender(d) && text(d.pickup,250) && text(d.dropoff,250) && text(d.recipientName,100) && phone(d.recipientPhone) && text(d.packageDescription,1000) && d.fee is number && d.fee >= 15 && d.fee <= 10000 && math.abs(d.fee * 100 - math.floor(d.fee * 100 + 0.5)) < 0.000001 && optionalText(d.preferredRiderId,128) && optionalText(d.merchantId,128) && (d.preferredRiderId == '' || (get(/databases/$(database)/documents/riders/$(d.preferredRiderId)).data.approvalStatus == 'approved' && get(/databases/$(database)/documents/riders/$(d.preferredRiderId)).data.accountStatus == 'active' && get(/databases/$(database)/documents/riders/$(d.preferredRiderId)).data.online == true)) && (d.merchantId == '' || (get(/databases/$(database)/documents/stores/$(d.merchantId)).data.approvalStatus == 'approved' && get(/databases/$(database)/documents/stores/$(d.merchantId)).data.accountStatus == 'active')) && (d.creatorRole != 'merchant' || d.merchantId == d.creatorId) && d.status == 'pending' && d.riderId == null && d.riderName == '' && d.customerRating == null && d.riderRating == null && d.customerRatingComment == '' && d.riderRatingComment == '' && d.customerRatedAt == null && d.riderRatedAt == null && d.assignedAt == null && d.pickedUpAt == null && d.deliveredAt == null && d.createdAt == request.time && d.updatedAt == request.time;
+    }
+    function claimingOrder() {
+      let old = resource.data; let next = request.resource.data;
+      return approvedRider() && currentUser().online == true && old.status == 'pending' && old.riderId == null && (old.preferredRiderId == '' || old.preferredRiderId == request.auth.uid) && next.diff(old).affectedKeys().hasOnly(['status','riderId','riderName','assignedAt','updatedAt']) && next.status == 'accepted' && next.riderId == request.auth.uid && next.riderName == currentUser().name && next.assignedAt == request.time && next.updatedAt == request.time;
+    }
+    function advancingOrder() {
+      let old = resource.data; let next = request.resource.data;
+      return approvedRider() && old.riderId == request.auth.uid && next.updatedAt == request.time && ((old.status == 'accepted' && next.status == 'picked_up' && next.pickedUpAt == request.time && next.diff(old).affectedKeys().hasOnly(['status','pickedUpAt','updatedAt'])) || (old.status == 'picked_up' && next.status == 'delivered' && next.deliveredAt == request.time && next.diff(old).affectedKeys().hasOnly(['status','deliveredAt','updatedAt'])));
+    }
+    function cancellingOrder() {
+      let old = resource.data; let next = request.resource.data;
+      return (old.creatorId == request.auth.uid || merchantOrderManager(old)) && old.status == 'pending' && next.status == 'cancelled' && next.updatedAt == request.time && next.diff(old).affectedKeys().hasOnly(['status','updatedAt']);
+    }
+    function ratingOrder() {
+      let old = resource.data; let next = request.resource.data;
+      return old.status == 'delivered' && next.updatedAt == request.time && (((old.creatorId == request.auth.uid || merchantOrderManager(old)) && old.customerRating == null && next.customerRating is int && next.customerRating >= 1 && next.customerRating <= 5 && optionalText(next.customerRatingComment,1000) && next.customerRatedAt == request.time && next.diff(old).affectedKeys().hasOnly(['customerRating','customerRatingComment','customerRatedAt','updatedAt'])) || (old.riderId == request.auth.uid && old.riderRating == null && next.riderRating is int && next.riderRating >= 1 && next.riderRating <= 5 && optionalText(next.riderRatingComment,1000) && next.riderRatedAt == request.time && next.diff(old).affectedKeys().hasOnly(['riderRating','riderRatingComment','riderRatedAt','updatedAt'])));
+    }
+    function adminOrderUpdate() {
+      let old = resource.data; let next = request.resource.data;
+      return isAdmin() && next.updatedAt == request.time && (
+        (old.status in ['pending','accepted'] && next.status == 'accepted' && next.diff(old).affectedKeys().hasOnly(['status','riderId','riderName','assignedAt','updatedAt']) && text(next.riderId,128) && get(/databases/$(database)/documents/users/$(next.riderId)).data.role == 'rider' && get(/databases/$(database)/documents/users/$(next.riderId)).data.approvalStatus == 'approved' && get(/databases/$(database)/documents/users/$(next.riderId)).data.accountStatus == 'active' && get(/databases/$(database)/documents/users/$(next.riderId)).data.online == true && next.riderName == get(/databases/$(database)/documents/users/$(next.riderId)).data.name && next.assignedAt == request.time) ||
+        (old.status in ['pending','accepted','picked_up'] && next.status == 'cancelled' && next.diff(old).affectedKeys().hasOnly(['status','updatedAt'])) ||
+        (old.status == 'accepted' && next.status == 'picked_up' && next.pickedUpAt == request.time && next.diff(old).affectedKeys().hasOnly(['status','pickedUpAt','updatedAt'])) ||
+        (old.status == 'picked_up' && next.status == 'delivered' && next.deliveredAt == request.time && next.diff(old).affectedKeys().hasOnly(['status','deliveredAt','updatedAt']))
+      );
+    }
+    match /orders/{orderId} {
+      allow read: if isAdmin() || (active() && (resource.data.creatorId == request.auth.uid || (resource.data.creatorRole == 'merchant' && resource.data.merchantId == resource.data.creatorId && storeMember(resource.data.creatorId)) || (currentUser().role == 'rider' && (resource.data.riderId == request.auth.uid || (approvedRider() && resource.data.status == 'pending')))));
+      allow create: if active() && validNewOrder(request.resource.data);
+      allow update: if (adminOrderUpdate() || (active() && (claimingOrder() || advancingOrder() || cancellingOrder() || ratingOrder()))) && (request.resource.data.status in ['delivered','cancelled'] || request.resource.data.riderId != resource.data.riderId ? !existsAfter(/databases/$(database)/documents/orders/$(orderId)/tracking/rider) : true);
+      allow delete: if false;
+    }
+    function trackedOrder(orderId) { return get(/databases/$(database)/documents/orders/$(orderId)).data; }
+    function validRiderLocation(d) {
+      return d.keys().hasAll(['riderId','latitude','longitude','accuracy','address','sharing','updatedAt']) && d.keys().hasOnly(['riderId','latitude','longitude','accuracy','address','sharing','updatedAt']) && d.riderId == request.auth.uid && d.latitude is number && d.latitude >= -90 && d.latitude <= 90 && d.longitude is number && d.longitude >= -180 && d.longitude <= 180 && (d.accuracy == null || (d.accuracy is number && d.accuracy >= 0 && d.accuracy <= 100000)) && optionalText(d.address,250) && d.sharing == true && d.updatedAt == request.time;
+    }
+    match /orders/{orderId}/tracking/{trackingId} {
+      allow get: if trackingId == 'rider' && active() && trackedOrder(orderId).status in ['accepted','picked_up'] && (isAdmin() || trackedOrder(orderId).creatorId == request.auth.uid || trackedOrder(orderId).riderId == request.auth.uid || (trackedOrder(orderId).creatorRole == 'merchant' && storeMember(trackedOrder(orderId).creatorId)));
+      allow list: if false;
+      allow create, update: if trackingId == 'rider' && approvedRider() && trackedOrder(orderId).riderId == request.auth.uid && trackedOrder(orderId).status in ['accepted','picked_up'] && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.status in ['accepted','picked_up'] && validRiderLocation(request.resource.data);
+      allow delete: if trackingId == 'rider' && (isAdmin() || (hasRole('rider') && (exists(/databases/$(database)/documents/orders/$(orderId)/tracking/$(trackingId)) ? resource.data.riderId == request.auth.uid : trackedOrder(orderId).riderId == request.auth.uid)));
+    }
+    function validStoreInvite(d) {
+      return d.keys().hasAll(['ownerId','storeId','storeName','email','status','memberId','createdAt','updatedAt']) && d.keys().hasOnly(['ownerId','storeId','storeName','email','status','memberId','createdAt','updatedAt']) && text(d.ownerId,128) && d.storeId == d.ownerId && text(d.storeName,100) && text(d.email,254) && d.email == d.email.lower() && d.status in ['pending','accepted','revoked'] && optionalText(d.memberId,128) && d.createdAt is timestamp && d.updatedAt == request.time;
+    }
+    function inviteOwner(d) { return hasRole('merchant') && d.ownerId == request.auth.uid && get(/databases/$(database)/documents/stores/$(d.storeId)).data.ownerId == request.auth.uid; }
+    function verifiedInvitee(d) { return hasRole('merchant') && request.auth.token.get('email_verified',false) == true && d.email == request.auth.token.email.lower(); }
+    match /storeInvites/{inviteId} {
+      allow get: if hasRole('merchant') && inviteId.matches('^' + request.auth.uid + '_[a-f0-9]{64}$');
+      allow read: if active() && (resource.data.ownerId == request.auth.uid || resource.data.email == request.auth.token.email.lower() || isAdmin());
+      allow create: if inviteId.matches('^' + request.auth.uid + '_[a-f0-9]{64}$') && validStoreInvite(request.resource.data) && inviteOwner(request.resource.data) && request.resource.data.status == 'pending' && request.resource.data.memberId == '' && request.resource.data.createdAt == request.time && request.resource.data.storeName == get(/databases/$(database)/documents/stores/$(request.resource.data.storeId)).data.name;
+      allow update: if validStoreInvite(request.resource.data) && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.email == resource.data.email && request.resource.data.createdAt == resource.data.createdAt && (
+        (inviteOwner(resource.data) && ((request.resource.data.status == 'revoked' && request.resource.data.memberId == resource.data.memberId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])) || (resource.data.status == 'revoked' && request.resource.data.status == 'pending' && request.resource.data.memberId == '' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','memberId','storeName','updatedAt'])))) ||
+        (verifiedInvitee(resource.data) && resource.data.status == 'pending' && request.resource.data.status == 'accepted' && request.resource.data.memberId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','memberId','updatedAt']) && getAfter(/databases/$(database)/documents/storeMembers/$(resource.data.storeId + '_' + request.auth.uid)).data.inviteId == inviteId && getAfter(/databases/$(database)/documents/storeMembers/$(resource.data.storeId + '_' + request.auth.uid)).data.enabled == true)
+      );
+      allow delete: if false;
+    }
+    function validStoreMember(d) {
+      return d.keys().hasAll(['storeId','userId','email','name','inviteId','enabled','createdAt','updatedAt']) && d.keys().hasOnly(['storeId','userId','email','name','inviteId','enabled','createdAt','updatedAt']) && text(d.storeId,128) && text(d.userId,128) && text(d.email,254) && text(d.name,100) && text(d.inviteId,256) && d.enabled is bool && d.createdAt is timestamp && d.updatedAt == request.time;
+    }
+    function acceptingMembership(d) {
+      let before = get(/databases/$(database)/documents/storeInvites/$(d.inviteId)).data;
+      let after = getAfter(/databases/$(database)/documents/storeInvites/$(d.inviteId)).data;
+      return verifiedInvitee(before) && before.status == 'pending' && after.status == 'accepted' && after.memberId == request.auth.uid && before.storeId == d.storeId && d.userId == request.auth.uid && d.email == before.email && d.name == currentUser().name && d.enabled == true;
+    }
+    match /storeMembers/{memberId} {
+      allow get: if hasRole('merchant') && memberId.matches('^[A-Za-z0-9_-]+_' + request.auth.uid + '$');
+      allow read: if active() && (resource.data.userId == request.auth.uid || resource.data.storeId == request.auth.uid || isAdmin());
+      allow create: if validStoreMember(request.resource.data) && memberId == request.resource.data.storeId + '_' + request.auth.uid && request.resource.data.createdAt == request.time && acceptingMembership(request.resource.data);
+      allow update: if validStoreMember(request.resource.data) && request.resource.data.storeId == resource.data.storeId && request.resource.data.userId == resource.data.userId && request.resource.data.createdAt == resource.data.createdAt && ((hasRole('merchant') && resource.data.storeId == request.auth.uid && request.resource.data.enabled == false && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enabled','updatedAt'])) || (memberId == request.resource.data.storeId + '_' + request.auth.uid && acceptingMembership(request.resource.data)));
+      allow delete: if false;
+    }
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin() || (active() && resource.data.ownerId == request.auth.uid);
+      allow create: if active() && request.resource.data.keys().hasAll(['ownerId','role','name','message','createdAt','status','adminNote','reviewedBy','reviewedAt']) && request.resource.data.keys().hasOnly(['ownerId','role','name','message','createdAt','status','adminNote','reviewedBy','reviewedAt']) && request.resource.data.ownerId == request.auth.uid && request.resource.data.role == currentUser().role && request.resource.data.name == currentUser().name && text(request.resource.data.message,2000) && request.resource.data.createdAt == request.time && request.resource.data.status == 'open' && request.resource.data.adminNote == '' && request.resource.data.reviewedBy == '' && request.resource.data.reviewedAt == null;
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','adminNote','reviewedBy','reviewedAt']) && request.resource.data.status in ['open','in_review','resolved'] && optionalText(request.resource.data.adminNote,2000) && request.resource.data.reviewedBy == request.auth.uid && request.resource.data.reviewedAt == request.time;
+      allow delete: if false;
+    }
+    match /adminAudit/{auditId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.keys().hasAll(['actorId','action','targetType','targetId','note','createdAt']) && request.resource.data.keys().hasOnly(['actorId','action','targetType','targetId','note','createdAt']) && request.resource.data.actorId == request.auth.uid && text(request.resource.data.action,80) && request.resource.data.targetType in ['user','rider','store','order','feedback','admin'] && text(request.resource.data.targetId,128) && optionalText(request.resource.data.note,2000) && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+    function smsActor(d) {
+      let order = get(/databases/$(database)/documents/orders/$(d.orderId)).data;
+      return isAdmin() || (approvedRider() && order.riderId == request.auth.uid);
+    }
+    function smsCustomer(d) { return hasRole('customer') && d.get('customerId','') == request.auth.uid && d.status == 'submitted'; }
+    function smsMerchant(d) {
+      let storeId = d.get('merchantId','');
+      return hasRole('merchant') && storeId != '' && d.status == 'submitted' && (self(storeId) || storeMember(storeId));
+    }
+    function smsAudienceMatchesOrder(d) {
+      let order = get(/databases/$(database)/documents/orders/$(d.orderId)).data;
+      return order.status == d.type && ((order.creatorRole == 'customer' && d.customerId == order.creatorId && d.get('merchantId','') == '') || (order.creatorRole == 'merchant' && order.merchantId == order.creatorId && d.customerId == '' && d.get('merchantId','') == order.creatorId));
+    }
+    function smsReviewLink(d) {
+      let token = d.get('recipientReviewToken','');
+      return token == '' || (token is string && token.matches('^[a-f0-9]{48}$') && d.type == 'delivered' && d.get('merchantId','') != '' && getAfter(/databases/$(database)/documents/deliveryReviewLinks/$(token)).data.orderId == d.orderId && getAfter(/databases/$(database)/documents/deliveryReviewLinks/$(token)).data.merchantId == d.merchantId && getAfter(/databases/$(database)/documents/deliveryReviewLinks/$(token)).data.createdAt == request.time);
+    }
+    function validDeliveryReviewLink(d) {
+      return d.keys().hasAll(['orderId','merchantId','riderId','merchantName','riderName','createdAt','expiresAt','usedAt']) && d.keys().hasOnly(['orderId','merchantId','riderId','merchantName','riderName','createdAt','expiresAt','usedAt']) && text(d.orderId,128) && d.orderId.matches('^[A-Za-z0-9_-]+$') && text(d.merchantId,128) && text(d.riderId,128) && text(d.merchantName,100) && text(d.riderName,100) && d.createdAt == request.time && d.expiresAt is timestamp && d.expiresAt > request.time && d.expiresAt <= request.time + duration.value(31,'d') && d.usedAt == null;
+    }
+    function deliveryReviewLinkOrder(d) {
+      let order = get(/databases/$(database)/documents/orders/$(d.orderId)).data;
+      return order.status == 'delivered' && order.creatorRole == 'merchant' && order.creatorId == d.merchantId && order.merchantId == d.merchantId && order.riderId == d.riderId;
+    }
+    function validDeliveryReview(d) {
+      return d.keys().hasAll(['orderId','merchantId','riderId','riderRating','merchantRating','comment','reviewToken','createdAt']) && d.keys().hasOnly(['orderId','merchantId','riderId','riderRating','merchantRating','comment','reviewToken','createdAt']) && text(d.orderId,128) && text(d.merchantId,128) && text(d.riderId,128) && d.riderRating is int && d.riderRating >= 1 && d.riderRating <= 5 && d.merchantRating is int && d.merchantRating >= 1 && d.merchantRating <= 5 && optionalText(d.comment,1000) && d.reviewToken is string && d.reviewToken.matches('^[a-f0-9]{48}$') && d.createdAt == request.time;
+    }
+    function deliveryReviewMatchesLink(d) {
+      let before = get(/databases/$(database)/documents/deliveryReviewLinks/$(d.reviewToken)).data;
+      let after = getAfter(/databases/$(database)/documents/deliveryReviewLinks/$(d.reviewToken)).data;
+      return before.usedAt == null && before.expiresAt > request.time && before.orderId == d.orderId && before.merchantId == d.merchantId && before.riderId == d.riderId && after.usedAt == request.time && deliveryReviewLinkOrder(before);
+    }
+    function deliveryReviewViewer(d) {
+      return (hasRole('rider') && d.riderId == request.auth.uid) || (hasRole('merchant') && (self(d.merchantId) || storeMember(d.merchantId)));
+    }
+    match /deliveryReviewLinks/{token} {
+      // The random token is the recipient's review capability; links cannot be listed.
+      allow get: if token.matches('^[a-f0-9]{48}$');
+      allow list: if false;
+      allow create: if signedIn() && token.matches('^[a-f0-9]{48}$') && validDeliveryReviewLink(request.resource.data) && deliveryReviewLinkOrder(request.resource.data) && smsActor(request.resource.data) && getAfter(/databases/$(database)/documents/deliverySms/$(request.resource.data.orderId + '_delivered')).data.recipientReviewToken == token && getAfter(/databases/$(database)/documents/deliverySms/$(request.resource.data.orderId + '_delivered')).data.actorId == request.auth.uid && getAfter(/databases/$(database)/documents/deliverySms/$(request.resource.data.orderId + '_delivered')).data.status == 'submitting' && getAfter(/databases/$(database)/documents/deliverySms/$(request.resource.data.orderId + '_delivered')).data.createdAt == request.time;
+      allow update: if resource.data.usedAt == null && resource.data.expiresAt > request.time && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedAt']) && request.resource.data.usedAt == request.time && getAfter(/databases/$(database)/documents/deliveryReviews/$(resource.data.orderId)).data.reviewToken == token && getAfter(/databases/$(database)/documents/deliveryReviews/$(resource.data.orderId)).data.createdAt == request.time;
+      allow delete: if false;
+    }
+    match /deliveryReviews/{orderId} {
+      allow get, list: if deliveryReviewViewer(resource.data);
+      allow create: if orderId == request.resource.data.orderId && validDeliveryReview(request.resource.data) && deliveryReviewMatchesLink(request.resource.data);
+      allow update, delete: if false;
+    }
+    match /users/{uid}/smsReads/{notificationId} {
+      allow get, list: if self(uid) && active() && currentUser().role in ['customer','merchant'];
+      allow create, update: if self(uid) && (smsCustomer(get(/databases/$(database)/documents/deliverySms/$(notificationId)).data) || smsMerchant(get(/databases/$(database)/documents/deliverySms/$(notificationId)).data)) && request.resource.data.keys().hasAll(['readAt']) && request.resource.data.keys().hasOnly(['readAt']) && request.resource.data.readAt == request.time;
+      allow delete: if false;
+    }
+    match /deliverySms/{notificationId} {
+      allow get: if signedIn() && (smsCustomer(resource.data) || smsMerchant(resource.data) || smsActor(resource.data));
+      allow list: if isAdmin() || smsCustomer(resource.data) || smsMerchant(resource.data);
+      allow create: if signedIn() && request.resource.data.keys().hasAll(['orderId','type','actorId','customerId','sender','message','status','errorCode','providerCode','campaignId','createdAt','updatedAt']) && request.resource.data.keys().hasOnly(['orderId','type','actorId','customerId','merchantId','recipientReviewToken','sender','message','status','errorCode','providerCode','campaignId','createdAt','updatedAt']) && text(request.resource.data.orderId,128) && request.resource.data.orderId.matches('^[A-Za-z0-9_-]+$') && request.resource.data.type in ['picked_up','delivered'] && notificationId == request.resource.data.orderId + '_' + request.resource.data.type && smsActor(request.resource.data) && smsAudienceMatchesOrder(request.resource.data) && smsReviewLink(request.resource.data) && request.resource.data.sender == 'KYE-TECH' && text(request.resource.data.message,1000) && request.resource.data.actorId == request.auth.uid && request.resource.data.status == 'submitting' && request.resource.data.errorCode == '' && request.resource.data.providerCode == '' && request.resource.data.campaignId == '' && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if signedIn() && smsActor(resource.data) && resource.data.status == 'submitting' && request.resource.data.status in ['submitted','failed','unknown'] && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','errorCode','providerCode','campaignId','updatedAt']) && optionalText(request.resource.data.errorCode,80) && optionalText(request.resource.data.providerCode,40) && optionalText(request.resource.data.campaignId,128) && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

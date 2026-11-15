@@ -1,0 +1,30 @@
+.admin-otp-page{--otp-orange:#f37021;--otp-orange-dark:#d95d12;display:grid;place-items:center;min-height:100vh;min-height:100dvh;padding:28px 20px;background:linear-gradient(135deg,#fff3e7,#f2f5fe);color:#181818}
+.admin-otp-shell{width:100%;max-width:460px;min-width:0;overflow:hidden;background:#fff;border:1px solid #ede7df;border-radius:26px;box-shadow:0 22px 75px #6354400e;animation:admin-otp-enter .35s ease-out both}
+.admin-otp-hero{position:relative;height:258px;overflow:hidden}
+.admin-otp-brand{position:relative;z-index:2;padding:24px 28px 0}
+.admin-otp-brand .brand-logo{width:44px;height:44px}.admin-otp-brand .brand-copy strong{font-size:18px}.admin-otp-brand .brand-copy small{font-size:9px}
+.admin-otp-art{position:absolute;inset:62px 0 0;overflow:hidden;pointer-events:none}
+.admin-otp-art:before{content:'';position:absolute;width:160px;height:160px;left:calc(50% - 80px);top:14px;border-radius:50%;background:#fff5ed}
+.admin-otp-delivery-image{position:absolute;width:206px;height:206px;left:calc(50% - 103px);bottom:-7px;object-fit:contain;transform-origin:center 78%;animation:admin-otp-delivery-cycle 12s ease-in-out infinite}
+.admin-otp-rider-image{position:absolute;width:270px;height:177px;left:calc(50% - 135px);bottom:0;object-fit:contain;opacity:0;animation:admin-otp-rider-cycle 12s ease-in-out infinite}
+.admin-otp-road{position:absolute;width:68%;left:16%;bottom:15px;height:1px;background:linear-gradient(90deg,transparent,#ead7c7 20%,#ead7c7 80%,transparent)}
+.admin-otp-body{padding:12px 28px 20px}
+.admin-otp-email{display:flex;align-items:center;gap:11px;min-width:0;padding:15px 16px;margin-bottom:12px;border:1px solid #dedbd7;border-radius:13px;background:#f7f7f7}
+.admin-otp-email>svg{color:#888a8e;flex-shrink:0}.admin-otp-email>div{min-width:0}.admin-otp-email strong{display:block;color:#36383c;font-size:14px;font-weight:550;line-height:1.6;overflow-wrap:anywhere}
+.admin-otp-form{display:grid;gap:12px}
+.admin-otp-form>input{width:100%;min-width:0;height:60px;padding:12px 14px;border:1px solid #bfc0c2;border-radius:13px;background:#f7f7f7;color:#36383c;font-size:26px;font-weight:650;letter-spacing:.14em;text-align:center;transition:border-color .15s,box-shadow .15s}
+.admin-otp-form>input::placeholder{color:#96999e;font-size:16px;font-weight:400;letter-spacing:0;opacity:1}.admin-otp-form>input:focus{outline:0;border-color:var(--otp-orange);box-shadow:0 0 0 3px #f3702115;background:#fffaf7}.admin-otp-form>input:disabled{background:#faf9f7;color:#96999e;opacity:1}.admin-otp-form>input[aria-invalid="true"]{border-color:#cf9088}
+.admin-otp-expiry{justify-self:end;margin-top:-4px;color:#7b7772;font-size:10px}
+.admin-otp-error{margin:0;padding:11px 13px;border:1px solid #ffe1d8;border-radius:10px;background:#fff0ec;color:#b54538;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.admin-otp-page .admin-otp-primary{width:100%;min-height:50px;border:1px solid var(--otp-orange);border-radius:100px;background:var(--otp-orange);color:#fff;padding:13px 22px;font-size:17px;font-weight:600;letter-spacing:-.015em;box-shadow:0 5px 15px #f3702118}
+.admin-otp-page .admin-otp-primary:hover:not(:disabled){background:var(--otp-orange-dark);border-color:var(--otp-orange-dark)}
+.admin-otp-resend{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:9px}.admin-otp-page .admin-otp-resend .button{min-height:44px;padding:8px 9px;border-radius:9px;color:var(--otp-orange-dark);font-size:12px}.admin-otp-resend>span{color:#8e8e8e;font-size:11px;font-variant-numeric:tabular-nums}
+.admin-otp-verified{display:flex;justify-content:center;align-items:center;gap:8px;min-height:60px;color:#398461;font-size:15px}
+.admin-otp-page .admin-otp-signout{width:100%;min-height:44px;margin-top:8px;padding:8px 12px;border-radius:10px;color:#777;font-size:12px}.admin-otp-page .admin-otp-signout:hover:not(:disabled){background:#fff7f1;color:var(--otp-orange-dark)}.admin-otp-page .button:focus-visible{outline:3px solid #f6ab7b;outline-offset:3px}
+.admin-otp-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+@keyframes admin-otp-enter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes admin-otp-delivery-cycle{0%,37%{opacity:1;transform:translateY(0) scale(1)}44%,89%{opacity:0;transform:translateY(5px) scale(.98)}97%,100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes admin-otp-rider-cycle{0%,37%{opacity:0;transform:translateX(-80px)}45%{opacity:1;transform:translateX(-7px)}50%,80%{opacity:1;transform:translateX(0)}88%{opacity:0;transform:translateX(60px)}89%,100%{opacity:0;transform:translateX(-80px)}}
+@media(max-width:580px){.admin-otp-page{padding:20px 16px}.admin-otp-shell{max-width:420px;border-radius:24px}.admin-otp-hero{height:238px}.admin-otp-brand{padding:21px 24px 0}.admin-otp-art{top:60px}.admin-otp-delivery-image{width:190px;height:190px;left:calc(50% - 95px)}.admin-otp-rider-image{width:252px;height:165px;left:calc(50% - 126px)}.admin-otp-body{padding:10px 24px 17px}}
+@media(max-width:359px){.admin-otp-page{padding:16px}.admin-otp-hero{height:219px}.admin-otp-brand{padding:18px 20px 0}.admin-otp-brand .brand-logo{width:40px;height:40px}.admin-otp-art{top:55px}.admin-otp-delivery-image{width:177px;height:177px;left:calc(50% - 88.5px)}.admin-otp-rider-image{width:232px;height:155px;left:calc(50% - 116px)}.admin-otp-body{padding:10px 20px 15px}.admin-otp-email{padding:13px 12px;gap:9px}.admin-otp-email strong{font-size:13px}.admin-otp-form>input{height:57px;font-size:24px}}
+@media(prefers-reduced-motion:reduce){.admin-otp-shell{animation:none}.admin-otp-delivery-image{animation:none;opacity:1;transform:none}.admin-otp-rider-image{animation:none;opacity:0;transform:none}.admin-otp-form>input{transition:none}}

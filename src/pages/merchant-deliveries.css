@@ -1,0 +1,18 @@
+.app-shell .merchant-delivery-filters { flex-wrap: wrap; overflow: visible; gap: 6px; margin-bottom: 16px; }
+.app-shell .merchant-delivery-filters .chip { padding-inline: 12px; }
+.modal:has(.merchant-delivery-detail) { display: flex; flex-direction: column; overflow: hidden; max-width: 720px; max-height: 94dvh; }
+.modal:has(.merchant-delivery-detail)::before, .modal:has(.merchant-delivery-detail) .modal-header { flex-shrink: 0; }
+.modal:has(.merchant-delivery-detail) .modal-body { overflow-y: auto; min-height: 0; background: #f7f9fd; padding: 20px; }
+.merchant-delivery-detail .order-card { min-width: 0; }
+.merchant-delivery-detail .order-card h3 { font-size: 16px; }
+.merchant-delivery-detail .order-card > .row > div > small { font-size: 11px; }
+.merchant-delivery-detail .status-badge { font-size: 11px; }
+.merchant-delivery-detail .route-point strong { font-size: 13px; line-height: 1.6; }
+.merchant-delivery-detail .route-point small { font-size: 10px; }
+.merchant-delivery-detail .order-meta { font-size: 12px; }
+.merchant-delivery-detail .amount { font-size: 20px; overflow-wrap: anywhere; }
+.merchant-delivery-detail .muted { overflow-wrap: anywhere; }
+@media (max-width: 389px) {
+  .modal:has(.merchant-delivery-detail) .modal-body { padding: 16px; }
+  .merchant-delivery-detail .order-card { padding: 15px; }
+}

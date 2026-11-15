@@ -1,0 +1,21 @@
+.record-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.record-list-row { --record-accent: #c78535; --record-tint: #fffaf4; }
+.record-list-accepted { --record-accent: #5d93c9; --record-tint: #f6faff; }
+.record-list-picked_up { --record-accent: #9974c6; --record-tint: #faf7ff; }
+.record-list-delivered { --record-accent: #54a47e; --record-tint: #f6fcf8; }
+.record-list-cancelled { --record-accent: #d9817c; --record-tint: #fff8f7; }
+.app-shell .record-list > .record-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; min-width: 0; padding: 8px 14px; border-radius: 10px; border-left: 3px solid var(--record-accent); background: linear-gradient(100deg, var(--record-tint), #fff 60%); }
+.record-list-row h3 { display: flex; align-items: center; gap: 6px; min-width: 0; color: #344357; font-size: 13px; font-weight: 650; line-height: 1.4; letter-spacing: .015em; overflow-wrap: anywhere; }
+.record-list-row h3 > span:first-child { min-width: 0; }
+.app-shell .record-list-row .status-badge { font-size: 11px; padding: 5px 9px; line-height: 1.5; }
+.app-shell .record-list-row .record-list-view { min-height: 44px; padding: 8px 11px; font-size: 12px; gap: 6px; color: #456a94; border-color: #dbe7f3; background: #f3f8ff; }
+@media (max-width: 479px) {
+  .app-shell .record-list > .record-list-row { padding: 7px 10px; gap: 8px; }
+  .record-list-row h3 { font-size: 12px; }
+  .app-shell .record-list-row .status-badge { font-size: 10px; padding: 4px 7px; }
+  .app-shell .record-list-row .record-list-view { padding-inline: 9px; }
+}
+@media (max-width: 359px) {
+  .app-shell .record-list > .record-list-row { gap: 6px; }
+  .app-shell .record-list-row .record-list-view svg { display: none; }
+}

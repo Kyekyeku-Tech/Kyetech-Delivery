@@ -1,0 +1,5 @@
+@media (max-width: 719px) {
+  .role-merchant .bottom-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); padding-inline: 5px; }
+  .role-merchant .bottom-nav button { font-size: 9px; padding-inline: 1px; min-width: 44px; }
+  .role-merchant .bottom-nav svg { width: 20px; height: 20px; }
+}
