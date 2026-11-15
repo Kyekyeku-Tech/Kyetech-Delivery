@@ -62,7 +62,9 @@ service cloud.firestore {
     }
     match /riders/{uid} {
       allow read: if self(uid) || isAdmin() || (active() && resource.data.approvalStatus == 'approved' && resource.data.accountStatus == 'active');
-      allow create, update: if (isAdmin() || (self(uid) && active())) && getAfter(/databases/$(database)/documents/users/$(uid)).data.role == 'rider' && riderMatchesUser(request.resource.data,getAfter(/databases/$(database)/documents/users/$(uid)).data);
+      // Signup creates both profiles atomically; the user exists only after this write.
+      allow create: if ((self(uid) && getAfter(/databases/$(database)/documents/users/$(uid)).data.get('accountStatus','active') == 'active') || isAdmin()) && getAfter(/databases/$(database)/documents/users/$(uid)).data.role == 'rider' && riderMatchesUser(request.resource.data,getAfter(/databases/$(database)/documents/users/$(uid)).data);
+      allow update: if (isAdmin() || (self(uid) && active())) && getAfter(/databases/$(database)/documents/users/$(uid)).data.role == 'rider' && riderMatchesUser(request.resource.data,getAfter(/databases/$(database)/documents/users/$(uid)).data);
       allow delete: if false;
     }
     function validLocation(value) {
