@@ -120,13 +120,13 @@ export function createRiderChime(browser = window) {
   function play() {
     if (context?.state !== 'running') return false;
     stop();
-    [740, 988, 740].forEach((frequency, index) => {
-      const tone = context.createOscillator(), gain = context.createGain(), start = context.currentTime + index * 0.22;
-      tone.type = 'sine'; tone.frequency.value = frequency;
-      gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(0.18, start + 0.02); gain.gain.exponentialRampToValueAtTime(0.001, start + 0.19);
+    [880, 1175, 880, 880, 1175, 880].forEach((frequency, index) => {
+      const tone = context.createOscillator(), gain = context.createGain(), start = context.currentTime + index * 0.28 + (index >= 3 ? 0.2 : 0);
+      tone.type = 'triangle'; tone.frequency.value = frequency;
+      gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(0.7, start + 0.02); gain.gain.setValueAtTime(0.7, start + 0.17); gain.gain.exponentialRampToValueAtTime(0.001, start + 0.23);
       tone.connect(gain); gain.connect(context.destination); playing.add(tone);
       tone.onended = () => { playing.delete(tone); tone.disconnect(); gain.disconnect(); };
-      tone.start(start); tone.stop(start + 0.2);
+      tone.start(start); tone.stop(start + 0.24);
     });
     return true;
   }

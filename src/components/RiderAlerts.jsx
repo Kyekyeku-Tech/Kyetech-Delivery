@@ -12,7 +12,7 @@ export default function RiderAlerts({ onViewRequests }) {
   const uid = user?.uid || '';
   const current = useRef({ uid, eligible }); current.current = { uid, eligible };
   const chime = useRef(null), tracker = useRef(createRequestTracker());
-  const [enabled, setEnabled] = useState(false), [pushReady, setPushReady] = useState(false), [soundReady, setSoundReady] = useState(false);
+  const [enabled, setEnabled] = useState(false), [pushReady, setPushReady] = useState(false);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [newIds, setNewIds] = useState([]);
   const [visible, setVisible] = useState(document.visibilityState === 'visible');
   const support = riderPushSupport();
@@ -31,7 +31,7 @@ export default function RiderAlerts({ onViewRequests }) {
   useEffect(() => {
     let active = true;
     const valid = () => active && current.current.uid === uid && current.current.eligible && riderAlertsEnabled(uid);
-    tracker.current = createRequestTracker(); setNewIds([]); setMessage(''); setBusy(false); setSoundReady(false); setPushReady(false);
+    tracker.current = createRequestTracker(); setNewIds([]); setMessage(''); setBusy(false); setPushReady(false);
     const remembered = riderAlertsEnabled(uid); setEnabled(remembered);
     if (eligible && remembered && support === 'supported' && Notification.permission === 'granted') {
       registerRiderPush(user, valid).then(ready => { if (valid()) setPushReady(ready); }).catch(error => { if (valid()) setMessage(error.message); });
@@ -47,7 +47,7 @@ export default function RiderAlerts({ onViewRequests }) {
     if (!active || !riderRequestsReady) { setNewIds([]); chime.current?.stop(); return; }
     setNewIds(previous => [...new Set([...previous.filter(id => requestIds.includes(id)), ...added])]);
     if (added.length) {
-      setSoundReady(chime.current?.play() || false);
+      chime.current?.play();
       try { navigator.vibrate?.([200, 100, 200]); } catch { /* Some phones do not support vibration. */ }
     }
   }, [requestIds.join(','), riderRequestsReady, eligible, profile?.online, enabled, visible]);
@@ -60,17 +60,19 @@ export default function RiderAlerts({ onViewRequests }) {
     const permission = support === 'supported' ? Notification.requestPermission() : Promise.resolve('unavailable');
     setBusy(true); setMessage(''); rememberRiderAlerts(uid, true); setEnabled(true);
     try {
-      const audible = await audio; if (!valid()) return; setSoundReady(audible);
+      await audio; if (!valid()) return;
       const choice = await permission; if (!valid()) return;
       if (choice === 'granted') { const ready = await registerRiderPush(account, valid); if (valid()) setPushReady(ready); }
       else if (choice === 'denied') setMessage('Phone notifications are blocked. Allow notifications for KyeTech in your browser or phone settings, then tap Enable alerts again.');
       else if (choice === 'default') setMessage('Allow notifications to receive requests while the app is closed. You can try again.');
+      else if (support === 'install-ios') setMessage('Open KyeTech from your Home Screen to enable phone notifications. Requires iOS 16.4 or later.');
+      else if (support === 'unsupported') setMessage('In-app sound is enabled. This browser does not support phone notifications.');
     } catch (error) { if (valid()) setMessage(error.message || 'Alerts could not be enabled. Please try again.'); }
     finally { if (valid()) setBusy(false); }
   }
 
   async function disable() {
-    rememberRiderAlerts(uid, false); setEnabled(false); setNewIds([]); setPushReady(false); setSoundReady(false); setMessage(''); chime.current.stop(); setBusy(true);
+    rememberRiderAlerts(uid, false); setEnabled(false); setNewIds([]); setPushReady(false); setMessage(''); chime.current.stop(); setBusy(true);
     try { await removeRiderPush(user); }
     catch { if (current.current.uid === uid) setMessage('Alerts are muted here. Check your phone notification settings if device alerts continue.'); }
     finally { if (current.current.uid === uid) setBusy(false); }
@@ -78,19 +80,12 @@ export default function RiderAlerts({ onViewRequests }) {
 
   if (!eligible) return null;
   return <section className="rider-alerts" aria-label="Delivery request alerts">
-    <div className="rider-alerts-copy"><Icon name="bell"/><div><strong>New delivery alerts</strong><p>{pushReady ? 'Phone notifications are on, including when the app is closed or your screen is locked.' : 'Turn on alerts to hear when a new delivery request arrives.'}</p>
-      {!profile.online && <small>Go online to receive new requests.</small>}
-      {support === 'install-ios' && <p>{appInstallSnapshot().installed ? 'Open KyeTech from your Home Screen to enable notifications.' : 'On iPhone, add KyeTech to your Home Screen, open the installed app, then enable alerts.'} Requires iOS 16.4 or later.</p>}
-      {support === 'unsupported' && <p>This browser supports in-app alerts only. Use a current browser or update your phone for background notifications.</p>}
-      {enabled && !soundReady && <small>Tap Test sound to activate the chime for this session.</small>}
-      {pushReady && <small>Your phone’s sound, silent mode and notification settings control background alerts.</small>}
-    </div></div>
-    <div className="rider-alerts-actions">{!pushReady && <Button busy={busy} onClick={enable}>Enable alerts</Button>}
-      {enabled && <Button variant="secondary" disabled={busy} onClick={async () => { const ready = await chime.current.unlock(); setSoundReady(ready); if (!ready) setMessage('This phone could not play the chime. Check your sound settings.'); }}>Test sound</Button>}
+    <div className="rider-alerts-actions">{pushReady ? <Button variant="secondary" disabled><Icon name="check" size={17}/>Alerts enabled</Button> : <Button busy={busy} onClick={enable}><Icon name="bell" size={17}/>Enable alerts</Button>}
+      {enabled && <Button variant="secondary" disabled={busy} onClick={async () => { const ready = await chime.current.unlock(); if (!ready) setMessage('This phone could not play the chime. Check your sound settings.'); }}>Test sound</Button>}
       {support === 'install-ios' && !appInstallSnapshot().installed && <Button variant="secondary" onClick={openAppInstallGuide}>Install guide</Button>}
       {enabled && <Button variant="ghost" disabled={busy} onClick={disable}>Turn off</Button>}
     </div>
     {message && <p className="rider-alerts-message" role="status">{message}</p>}
-    {newIds.length > 0 && <div className="rider-alerts-new" role="status"><strong>{newIds.length === 1 ? 'New delivery request received' : `${newIds.length} new delivery requests received`}</strong><Button onClick={() => { setNewIds([]); onViewRequests(); }}>View requests</Button><button className="button-icon" aria-label="Dismiss new request alert" onClick={() => setNewIds([])}><Icon name="x"/></button></div>}
+    {newIds.length > 0 && <div className="rider-alerts-new"><span className="request-announcement" role="status">{newIds.length === 1 ? 'New delivery request received' : `${newIds.length} new delivery requests received`}</span><Button onClick={() => { setNewIds([]); onViewRequests(); }}>View requests ({newIds.length})</Button><button className="button-icon" aria-label="Dismiss new request alert" onClick={() => setNewIds([])}><Icon name="x"/></button></div>}
   </section>;
 }

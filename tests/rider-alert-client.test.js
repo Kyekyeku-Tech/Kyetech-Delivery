@@ -70,6 +70,6 @@ test('chimes require a rider gesture and stop every scheduled tone when muted', 
     createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
   } });
   assert.equal(sound.play(), false); assert.equal(tones.length, 0);
-  assert.equal(await sound.unlock(), true); assert.equal(tones.length, 3);
+  assert.equal(await sound.unlock(), true); assert.equal(tones.length, 6);
   sound.stop(); assert.ok(tones.every(node => node.stops === 2)); sound.close(); assert.equal(sound.ready(), false);
 });
