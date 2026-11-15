@@ -24,13 +24,13 @@ export function locationIsFresh(location, now = Date.now()) {
   return Boolean(location?.sharing && validCoordinates(location) && Number.isFinite(updated) && now - updated >= -10000 && now - updated < LIVE_LOCATION_MAX_AGE);
 }
 
-export async function lookupGpsAddress(location, account, { signal, fetchImpl = fetch } = {}) {
+export async function lookupGpsAddress(location, account, { signal, fetchImpl = fetch, locality = false } = {}) {
   const pin = cleanCoordinates(location);
   if (!pin || !account?.getIdToken) throw new Error('Sign in to look up your GPS address.');
   const token = await account.getIdToken();
   const timeout = AbortSignal.timeout(12000);
-  const response = await fetchImpl('/api/gps-address?latitude=' + pin.latitude + '&longitude=' + pin.longitude, {
-    headers: { Authorization: 'Bearer ' + token }, signal: signal && AbortSignal.any ? AbortSignal.any([signal, timeout]) : signal || timeout,
+  const response = await fetchImpl('/api/gps-address?latitude=' + pin.latitude + '&longitude=' + pin.longitude + (locality ? '&locality=1' : ''), {
+    headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', signal: signal && AbortSignal.any ? AbortSignal.any([signal, timeout]) : signal || timeout,
   });
   if (!response.ok) throw new Error('The GPS address could not be found.');
   const result = await response.json();

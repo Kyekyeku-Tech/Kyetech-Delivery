@@ -17,3 +17,13 @@
 @keyframes request-pulse{0%,100%{box-shadow:0 0 0 0 #dc262600}40%{box-shadow:0 0 0 5px #dc262622}}
 @media(max-width:719px){.rider-actions .action-icon{margin-top:7px}.action-request-badge{top:7px;right:7px;min-height:18px;gap:3px;padding:3px 5px;font-size:9px}.action-request-badge svg{width:12px;height:12px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* Show search focus on the full rounded bar, without an inner input rectangle. */
+:is(.search-input, .directory-search, .catalog-search, .pickup-store-input-wrap) input,
+:is(.search-input, .directory-search, .catalog-search, .pickup-store-input-wrap) input:focus,
+:is(.search-input, .directory-search, .catalog-search, .pickup-store-input-wrap) input:focus-visible {
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+}

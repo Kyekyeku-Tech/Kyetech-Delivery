@@ -128,13 +128,13 @@
 }
 
 .app-loading-stop-store {
-  left: 5.479%;
+  right: 5.479%;
   color: #7f5cb4;
   border: 1px solid #e5d8f4;
 }
 
 .app-loading-stop-pin {
-  right: 5.479%;
+  left: 5.479%;
   color: #269b85;
   border: 1px solid #cfece4;
 }
@@ -160,7 +160,7 @@
   position: absolute;
   height: 2px;
   width: 20.588%;
-  left: -29.412%;
+  right: -29.412%;
   top: 36.765%;
   border-radius: 3px;
   background: #f3b68d;
@@ -172,7 +172,7 @@
   width: 64.286%;
   height: 2px;
   top: 6px;
-  right: 0;
+  left: 0;
   border-radius: inherit;
   background: inherit;
 }
@@ -246,7 +246,7 @@
 
 .app-loading-journey .app-loading-stop > svg,
 .app-loading-journey .app-loading-parcel > svg { width: 55%; height: 55%; }
-.app-loading-journey .app-loading-rider > svg { width: 57%; height: 57%; }
+.app-loading-journey .app-loading-rider > svg { width: 57%; height: 57%; transform: scaleX(-1); }
 
 .app-loading-progress {
   width: min(100%, 168px);
@@ -341,14 +341,14 @@
 }
 
 @keyframes app-loading-orbit-turn { to { transform: rotate(360deg); } }
-@keyframes app-loading-route-flow { to { stroke-dashoffset: -24; } }
+@keyframes app-loading-route-flow { to { stroke-dashoffset: 24; } }
 
 @keyframes app-loading-rider-travel {
-  0% { transform: translate(-95%, 9%) rotate(-3deg); opacity: .25; }
+  0% { transform: translate(95%, 9%) rotate(3deg); opacity: 0; }
   10% { opacity: 1; }
   45% { transform: translate(0, -7%) rotate(0deg); opacity: 1; }
-  85% { transform: translate(95%, 9%) rotate(3deg); opacity: 1; }
-  100% { transform: translate(95%, 9%) rotate(3deg); opacity: .25; }
+  85% { transform: translate(-95%, 9%) rotate(-3deg); opacity: 1; }
+  100% { transform: translate(-95%, 9%) rotate(-3deg); opacity: 0; }
 }
 
 @keyframes app-loading-parcel-float {

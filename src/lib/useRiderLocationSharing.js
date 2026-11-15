@@ -4,6 +4,9 @@ import { db } from './firebase';
 import { isApprovedRider } from './admin';
 import { cleanCoordinates, LIVE_LOCATION_INTERVAL, LIVE_LOCATION_MAX_AGE, lookupGpsAddress } from './location';
 
+const TOWN_LOOKUP_INTERVAL = 30000;
+const distanceMetres = (first, second) => Math.hypot(first.latitude - second.latitude, (first.longitude - second.longitude) * Math.cos(first.latitude * Math.PI / 180)) * 111320;
+
 export default function useRiderLocationSharing({ user, profile, orders }) {
   const [selectedIds, setSelectedIds] = useState([]), [updates, setUpdates] = useState({});
   const [errors, setErrors] = useState({}), [address, setAddress] = useState('');
@@ -62,7 +65,7 @@ export default function useRiderLocationSharing({ user, profile, orders }) {
           for (const snapshot of writable) {
             sharedIds.add(snapshot.id);
             transaction.set(doc(db, 'orders', snapshot.id, 'tracking', 'rider'), {
-              ...cleanCoordinates(sample), accuracy: sample.accuracy, address: gpsAddress,
+              ...cleanCoordinates(sample), accuracy: sample.accuracy, address: addressPin && distanceMetres(sample, addressPin) <= 150 ? gpsAddress : '',
               sharing: true, riderId: account.uid, updatedAt: serverTimestamp(),
             });
           }
@@ -82,20 +85,27 @@ export default function useRiderLocationSharing({ user, profile, orders }) {
       } finally { writing = false; }
     }
 
+    function updateTown() {
+      if (!running || lookingUp || !latest || Date.now() - latest.capturedAt >= LIVE_LOCATION_MAX_AGE) return;
+      const pin = cleanCoordinates(latest);
+      const moved = !addressPin || distanceMetres(pin, addressPin) > 100;
+      if (!moved || Date.now() - lastLookup < TOWN_LOOKUP_INTERVAL) return;
+      lookingUp = true; lastLookup = Date.now();
+      lookupGpsAddress(pin, account, { signal: abort.signal, locality: true }).then(value => {
+        if (!running || !latest || distanceMetres(pin, latest) > 150) return;
+        gpsAddress = value; addressPin = pin; setAddress(value);
+        void publish();
+      }).catch(() => {}).finally(() => { lookingUp = false; });
+    }
+
     function positionReceived(position) {
       if (!running) return;
       let pin;
       try { pin = cleanCoordinates(position.coords); } catch { reportError('Your GPS position could not be read. Stop sharing and try again.'); return; }
       latest = { ...pin, capturedAt: Number.isFinite(position.timestamp) ? position.timestamp : Date.now(), accuracy: Number.isFinite(position.coords.accuracy) && position.coords.accuracy >= 0 ? Math.min(100000, Math.ceil(position.coords.accuracy)) : null };
-      const moved = !addressPin || Math.hypot(pin.latitude - addressPin.latitude, (pin.longitude - addressPin.longitude) * Math.cos(pin.latitude * Math.PI / 180)) * 111320 > 100;
+      const moved = !addressPin || distanceMetres(pin, addressPin) > 100;
       if (moved) { gpsAddress = ''; setAddress(''); }
-      if (!lookingUp && moved && Date.now() - lastLookup >= 60000) {
-        lookingUp = true; lastLookup = Date.now();
-        lookupGpsAddress(pin, account, { signal: abort.signal }).then(value => {
-          if (!running || !latest || Math.hypot(pin.latitude - latest.latitude, pin.longitude - latest.longitude) * 111320 > 150) return;
-          gpsAddress = value; addressPin = pin; setAddress(value);
-        }).catch(() => {}).finally(() => { lookingUp = false; });
-      }
+      updateTown();
       void publish();
     }
 
@@ -108,6 +118,7 @@ export default function useRiderLocationSharing({ user, profile, orders }) {
     } catch { reportError('Live GPS is unavailable in this browser.'); selected.current.clear(); setSelectedIds([]); }
     const timer = setInterval(() => {
       if (latest && Date.now() - latest.capturedAt >= LIVE_LOCATION_MAX_AGE) reportError('Waiting for a fresh GPS position. Your customer can see the last shared location.');
+      updateTown();
       void publish();
     }, 1000); // Check freshness often; publish() still limits writes to once per 15 seconds.
     return () => {
