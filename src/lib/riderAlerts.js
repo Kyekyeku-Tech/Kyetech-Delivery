@@ -1,3 +1,5 @@
+import { ensureServiceWorker } from './registerServiceWorker.js';
+
 const preferences = new Map();
 let subscriptionQueue = Promise.resolve();
 let deviceOwner = '';
@@ -51,14 +53,7 @@ export function registerRiderPush(user, isCurrent = () => true) {
     if (!isCurrent()) return false;
     const { publicKey } = await request(user, 'GET');
     if (!isCurrent()) return false;
-    let readyTimeout;
-    let registration;
-    try {
-      registration = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise((_, reject) => { readyTimeout = setTimeout(() => reject(new Error('The app is still updating. Close and reopen it, then enable alerts.')), 15000); }),
-      ]);
-    } finally { clearTimeout(readyTimeout); }
+    const registration = await ensureServiceWorker();
     if (!isCurrent()) return false;
     let subscription = await registration.pushManager.getSubscription();
     const key = vapidKeyBytes(publicKey);

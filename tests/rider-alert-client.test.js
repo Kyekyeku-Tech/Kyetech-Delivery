@@ -38,8 +38,8 @@ test('push registration uses authenticated uncached requests and aborts stale ac
   const key = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 7)]).toString('base64url');
   let unsubscribed = 0, subscribed = 0, calls = [], current = true, afterKey;
   const subscription = { endpoint: 'https://fcm.googleapis.com/fcm/send/fixture', options: {}, toJSON() { return { endpoint: this.endpoint, keys: { p256dh: key, auth: Buffer.alloc(16, 1).toString('base64url') } }; }, async unsubscribe() { unsubscribed++; return true; } };
-  const registration = { pushManager: { async getSubscription() { return subscription; }, async subscribe() { subscribed++; return subscription; } } };
-  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { serviceWorker: { ready: Promise.resolve(registration), async getRegistration() { return registration; } } } });
+  const registration = { active: { state: 'activated' }, pushManager: { async getSubscription() { return subscription; }, async subscribe() { subscribed++; return subscription; } } };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { serviceWorker: { async register() { return registration; }, ready: Promise.resolve(registration), async getRegistration() { return registration; } } } });
   globalThis.fetch = async (url, options) => { calls.push(options); assert.equal(url, '/api/rider-alerts'); assert.equal(options.cache, 'no-store'); assert.equal(options.headers.Authorization, 'Bearer fixture-token'); if (options.method === 'GET') afterKey?.(); return new Response(JSON.stringify(options.method === 'GET' ? { publicKey: key } : { ok: true }), { headers: { 'Content-Type': 'application/json' } }); };
   const user = { uid: 'fixture-user', async getIdToken() { return 'fixture-token'; } };
   try {
