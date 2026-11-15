@@ -6,6 +6,8 @@ A simple React.js delivery platform for Sekondi–Takoradi, using Firebase Authe
 
 Use Node.js 24. The project's [package.json](./package.json) pins Vercel builds and API functions to `24.x`, matching the tested local runtime.
 
+Vercel's function loader can reject CommonJS `require()` of ESM even on Node 24. Firebase Admin's `jwks-rsa` 4 dependency requires `jose` at startup; [package.json](./package.json) overrides that dependency to the CommonJS-compatible `jose` 5.10.0. Keep [package-lock.json](./package-lock.json) in deployments so the resolved dependency matches the fix. Remove the override only after the upstream dependency supports this loader and the restricted-runtime tests pass. `npm test` disables experimental CommonJS loading of ESM to reproduce the deployed loader's restriction, including API startup and RSA signing-key verification checks. [.vercelignore](./.vercelignore) excludes local credentials, delivery data and verification folders from CLI uploads; configure runtime credentials through Vercel environment variables.
+
 ```sh
 npm install
 npm run dev

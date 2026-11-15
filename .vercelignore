@@ -1,0 +1,15 @@
+.git/
+.vercel/
+.env*
+**/*service-account*.json
+.data/
+.verification/
+.firebase/
+.next/
+node_modules/
+dist/
+mobile/
+test-results/
+playwright-report/
+*.log
+*.tsbuildinfo
