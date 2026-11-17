@@ -51,7 +51,7 @@ function fixture(patch = {}) {
 
 test('MojoAuth uses documented email JSON and uppercase OTP form fields without exposing provider tokens', async () => {
   const calls = [];
-  const provider = createMojoAuthProvider({ apiKey: 'private-fixture-key', fetchImpl: async (url, options) => {
+  const provider = createMojoAuthProvider({ apiKey: 'private-fixture-key', emailDomainCheck: async () => {}, fetchImpl: async (url, options) => {
     calls.push({ url, options });
     return { ok: true, status: 200, json: async () => url.endsWith('/verify') ? { authenticated: true, user: { identifier: 'Admin@Example.Invalid' }, oauth: { access_token: 'never-return', refresh_token: 'never-return' } } : { state_id: 'state-one' } };
   } });
@@ -166,6 +166,25 @@ test('Uncertain email sends retain cooldown and cannot generate immediate duplic
   await assert.rejects(createAdminOtpService(f.options)({ token: 'original-token', action: 'send' }), error => error.status === 429);
   assert.equal(calls, 1);
   assert.equal([...f.db.documents].find(([path]) => path.startsWith('adminOtpChallenges/'))[1].status, 'failed');
+});
+
+test('Undeliverable administrator email domains report the mailbox problem without granting access', async () => {
+  const f = fixture();
+  f.provider.send = async () => { throw new MojoAuthError('email-domain'); };
+  await assert.rejects(f.service({ token: 'original-token', action: 'send' }), error => error.status === 422 && /email domain cannot receive mail/.test(error.message));
+  assert.equal(f.customTokens.length, 0);
+  assert.equal([...f.db.documents].find(([path]) => path.startsWith('adminOtpChallenges/'))[1].status, 'failed');
+});
+
+test('Expired MojoAuth sessions require a new code instead of reporting an incorrect code', async () => {
+  const provider = createMojoAuthProvider({ apiKey: 'fixture', fetchImpl: async () => ({ ok: false, status: 400, json: async () => ({ code: '914', message: 'Invalid Session State' }) }) });
+  await assert.rejects(provider.verify('expired-state', '123456'), error => error instanceof MojoAuthError && error.reason === 'session');
+  const f = fixture();
+  f.provider.verify = provider.verify;
+  const sent = await f.service({ token: 'original-token', action: 'send' });
+  await assert.rejects(f.service({ token: 'original-token', action: 'verify', challengeId: sent.challengeId, code: '123456' }), error => error.status === 410 && /expired or been replaced/.test(error.message));
+  assert.equal(f.customTokens.length, 0);
+  assert.equal(f.db.documents.get('adminOtpChallenges/' + sent.challengeId).status, 'failed');
 });
 
 test('Expired verification leases and admin revocation during provider verification cannot mint a token', async () => {

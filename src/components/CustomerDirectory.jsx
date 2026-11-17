@@ -28,7 +28,16 @@ export function StoreDirectory({ stores, onDispatch }) {
       const phone = normalizeGhanaPhone(store.phone);
       return <article className="store-card directory-store-card" key={store.id} aria-label={store.name}>
         <div className="directory-store-photo"><SafeImage src={store.imageUrl} alt={store.name} loading="lazy"/><span className={'directory-availability' + (!store.open ? ' availability-offline' : '')}><span/>{store.open ? 'Open now' : 'Closed'}</span></div>
-        <div className="directory-store-body"><span className="directory-category">{store.category}</span><h3>{store.name}</h3>{store.description && <p className="directory-description">{store.description}</p>}<p className="directory-address"><Icon name="map-pin" size={17}/><span>{store.address}</span></p><Button variant="secondary" className="directory-browse-catalog" data-store-catalog={store.id} aria-label={'Browse products and menu at ' + store.name} onClick={() => { catalogueButton.current = store.id; setSelectedId(store.id); }}><Icon name="package" size={18}/>Products & menu</Button><div className="directory-card-actions">{phone && <a className="button button-secondary directory-call" href={'tel:' + phone} aria-label={'Call store ' + store.name}><Icon name="phone" size={18}/>Call store</a>}<Button disabled={!store.open} onClick={() => onDispatch({ pickup: store.address, merchantId: store.id })}><Icon name="send" size={18}/>Request delivery</Button></div></div>
+        <div className="directory-store-body">
+          <span className="directory-category">{store.category}</span><h3>{store.name}</h3>
+          {store.description && <p className="directory-description">{store.description}</p>}
+          <p className="directory-address"><Icon name="map-pin" size={17}/><span>{store.address}</span></p>
+          <Button variant="secondary" className="directory-browse-catalog" data-store-catalog={store.id} aria-label={'Browse products and menu at ' + store.name} onClick={() => { catalogueButton.current = store.id; setSelectedId(store.id); }}><Icon name="package" size={18}/><span className="directory-label-full">Products & menu</span><span className="directory-label-compact">Browse</span></Button>
+          <div className="directory-card-actions">
+            {phone && <a className="button button-secondary directory-call" href={'tel:' + phone} aria-label={'Call store ' + store.name}><Icon name="phone" size={18}/>Call store</a>}
+            <Button disabled={!store.open} aria-label="Request delivery" onClick={() => onDispatch({ pickup: store.address, merchantId: store.id })}><Icon name="send" size={18}/><span className="directory-label-full">Request delivery</span><span className="directory-label-compact">Delivery</span></Button>
+          </div>
+        </div>
       </article>;
     })}</div>
     {!matches.length && <EmptyState icon="store" title={stores.length ? 'No stores match just yet' : 'Our store community is growing'} description={stores.length ? 'Try another name, area or category. You can also turn off the open filter.' : 'Stores will appear here once they are ready to serve customers.'} action={stores.length ? <Button variant="secondary" onClick={() => { setSearch(''); setCategory('All'); setOpenOnly(false); }}>Show all stores</Button> : undefined}/>}

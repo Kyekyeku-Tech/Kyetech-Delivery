@@ -12,5 +12,9 @@
     "api/gps-address.js": { "maxDuration": 30, "includeFiles": "{server,src/lib}/**" },
     "api/admin-otp.js": { "maxDuration": 60, "includeFiles": "{server,src/lib}/**" }
   },
-  "rewrites": [{ "source": "/admin/:path*", "destination": "/index.html" }, { "source": "/review", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/admin/:page(home|riders|stores|customers|orders|feedback|access|audit)", "destination": "/index.html" },
+    { "source": "/review", "destination": "/index.html" }
+  ]
 }

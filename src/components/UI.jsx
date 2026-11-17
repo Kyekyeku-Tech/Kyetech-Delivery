@@ -58,7 +58,18 @@ export function MetricCard({ icon, label, value, detail, tone = 'blue', classNam
 }
 export function SectionHeading({title,subtitle,action}) { return <div className="section-heading"><div><h2>{title}</h2>{subtitle && <p className="muted">{subtitle}</p>}</div>{action}</div>; }
 export function EmptyState({icon='package',title,description,action}) { return <Card><div className="empty-state"><span className="empty-icon"><Icon name={icon}/></span><h3>{title}</h3><p>{description}</p>{action}</div></Card>; }
-export function SafeImage({src,alt,className='',fallback='/images/store-placeholder.svg',...props}) { const [failed,setFailed]=useState(false);useEffect(()=>setFailed(false),[src]);return <img src={!src || failed ? fallback : src} alt={alt} className={className} referrerPolicy="no-referrer" onError={()=>setFailed(true)} {...props}/>; }
+export function SafeImage({src,alt,className='',fallback='/images/store-placeholder.svg',...props}) {
+  const [failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
+  useEffect(()=>{setFailed(false);setAttempt(0);},[src]);
+  useEffect(()=>{
+    if(!src || !failed)return;
+    function retry(){setFailed(false);setAttempt(value=>value+1);}
+    const timer=attempt===0?setTimeout(retry,1000):null;
+    window.addEventListener('online',retry);
+    return()=>{clearTimeout(timer);window.removeEventListener('online',retry);};
+  },[src,failed,attempt]);
+  return <img key={src+':'+attempt} src={!src || failed ? fallback : src} alt={alt} className={className} referrerPolicy="no-referrer" onError={event=>{if(event.currentTarget.getAttribute('src')!==fallback)setFailed(true);}} {...props}/>;
+}
 export function Avatar({name='',src,size=42}) { const [failed,setFailed]=useState(false);useEffect(()=>setFailed(false),[src]);return <span className="avatar" style={{width:size,height:size}}>{src && !failed ? <img src={src} alt="" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/> : name.split(' ').filter(Boolean).map(s=>s[0]).slice(0,2).join('').toUpperCase() || 'K'}</span>; }
 export function StatusBadge({status}) { return <span className={`status-badge status-${status}`}>{STATUS_LABELS[status] || status}</span>; }
 export function Modal({title,children,onClose}) {

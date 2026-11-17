@@ -1,5 +1,5 @@
 {
   "firestore": { "rules": "firestore.rules" },
-  "hosting": { "public": "dist", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{ "source": "**", "destination": "/index.html" }] },
+  "hosting": { "public": "dist", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{ "source": "/admin{,/}", "destination": "/index.html" }, { "source": "/admin/{home,riders,stores,customers,orders,feedback,access,audit}{,/}", "destination": "/index.html" }, { "source": "/review{,/}", "destination": "/index.html" }] },
   "emulators": { "auth": { "port": 9099 }, "firestore": { "port": 8080 }, "ui": { "enabled": true }, "singleProjectMode": true }
 }

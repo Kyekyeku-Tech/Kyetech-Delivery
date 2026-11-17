@@ -1,8 +1,13 @@
+import { checkEmailDeliveryDomain, EmailDomainError } from './emailDelivery.mjs';
+
 export class MojoAuthError extends Error {
-  constructor() { super('The email verification service is temporarily unavailable. Request a new code and try again.'); }
+  constructor(reason = 'unavailable') {
+    super('The email verification service is temporarily unavailable. Request a new code and try again.');
+    this.reason = reason;
+  }
 }
 
-export function createMojoAuthProvider({ apiKey, fetchImpl = fetch }) {
+export function createMojoAuthProvider({ apiKey, fetchImpl = fetch, emailDomainCheck = checkEmailDeliveryDomain }) {
   async function request(path, body, contentType) {
     if (!apiKey?.trim()) throw new MojoAuthError();
     try {
@@ -11,13 +16,18 @@ export function createMojoAuthProvider({ apiKey, fetchImpl = fetch }) {
         body, signal: AbortSignal.timeout(15000),
       });
       const data = await response.json();
-      if (!response.ok && path.endsWith('/verify') && [400, 422].includes(response.status)) return { authenticated: false };
+      if (!response.ok && path.endsWith('/verify') && [400, 422].includes(response.status)) {
+        if (String(data?.code) === '914') throw new MojoAuthError('session');
+        return { authenticated: false };
+      }
       if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) throw new MojoAuthError();
       return data;
-    } catch { throw new MojoAuthError(); }
+    } catch (error) { throw error instanceof MojoAuthError ? error : new MojoAuthError(); }
   }
   return {
     async send(email) {
+      try { await emailDomainCheck(email); }
+      catch (error) { throw new MojoAuthError(error instanceof EmailDomainError ? error.reason : 'unavailable'); }
       const data = await request('/users/emailotp', JSON.stringify({ email }), 'application/json');
       if (typeof data.state_id !== 'string' || !data.state_id.trim() || data.state_id.length > 512) throw new MojoAuthError();
       return { stateId: data.state_id };

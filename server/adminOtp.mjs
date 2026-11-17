@@ -1,24 +1,15 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
-import { createMojoAuthProvider } from './mojoAuth.mjs';
+import { createFirebaseAdminRuntime } from './firebaseAdmin.mjs';
+import { createMojoAuthProvider, MojoAuthError } from './mojoAuth.mjs';
 import { AdminOtpError, createAdminOtpStore, OTP_COOLDOWN_MS, OTP_LIFETIME_MS } from './adminOtpStore.mjs';
 
 export { AdminOtpError } from './adminOtpStore.mjs';
 
 export function createAdminOtpRuntime({ projectId, serviceAccountJson }) {
-  if (!projectId?.trim()) throw new AdminOtpError(503, 'Administrator email verification is not configured.');
-  let credential;
+  if (typeof projectId !== 'string' || !projectId.trim()) throw new AdminOtpError(503, 'Administrator email verification is not configured.');
   try {
-    if (serviceAccountJson?.trim()) {
-      const account = JSON.parse(serviceAccountJson);
-      if (!account || account.project_id !== projectId || typeof account.client_email !== 'string' || typeof account.private_key !== 'string') throw new Error();
-      credential = cert(account);
-    } else credential = applicationDefault();
-    const name = `kyetech-admin-otp-${projectId}`;
-    const app = getApps().find(candidate => candidate.name === name) || initializeApp({ projectId, credential }, name);
-    return { auth: getAuth(app), store: createAdminOtpStore({ firestore: getFirestore(app) }) };
+    const { auth, firestore } = createFirebaseAdminRuntime({ projectId, serviceAccountJson, name: `kyetech-admin-otp-${projectId}` });
+    return { auth, store: createAdminOtpStore({ firestore }) };
   } catch { throw new AdminOtpError(503, 'Administrator email verification requires Firebase server credentials.'); }
 }
 
@@ -60,14 +51,22 @@ export function createAdminOtpService({ projectId, apiKey, serviceAccountJson, a
       const challenge = { id, uid, email, authTime, tokenHash: hashToken(token) };
       await deps.store.reserveChallenge(challenge, timestamp);
       try { const sent = await emails.send(email); await deps.store.finishSend(id, sent.stateId, now()); }
-      catch { await deps.store.failSend(id, now()).catch(() => {}); throw new AdminOtpError(503, 'The verification email could not be sent. Wait a minute and request a new code.'); }
+      catch (error) {
+        await deps.store.failSend(id, now()).catch(() => {});
+        if (error instanceof MojoAuthError && error.reason === 'email-domain') throw new AdminOtpError(422, 'Your administrator email domain cannot receive mail. Contact support to update the email address or restore its mail service.');
+        throw new AdminOtpError(503, 'The verification email could not be sent. Wait a minute and request a new code.');
+      }
       return { status: 'sent', challengeId: id, expiresAt: timestamp + OTP_LIFETIME_MS, cooldownUntil: timestamp + OTP_COOLDOWN_MS, maskedEmail: maskEmail(email) };
     }
     const leaseId = randomId();
     const challenge = await deps.store.claimVerification({ challengeId, uid, email, authTime, tokenHash: hashToken(token), leaseId, now: timestamp });
     let verified;
     try { verified = await emails.verify(challenge.stateId, code); }
-    catch { await deps.store.failVerification(challengeId, leaseId, true, now()).catch(() => {}); throw new AdminOtpError(503, 'Code verification could not be completed. Request a new code.'); }
+    catch (error) {
+      await deps.store.failVerification(challengeId, leaseId, true, now()).catch(() => {});
+      if (error instanceof MojoAuthError && error.reason === 'session') throw new AdminOtpError(410, 'This verification code has expired or been replaced. Request a new code.');
+      throw new AdminOtpError(503, 'Code verification could not be completed. Request a new code.');
+    }
     if (verified.authenticated !== true || normalizedEmail(verified.email) !== challenge.email) {
       const mismatch = verified.authenticated === true;
       await deps.store.failVerification(challengeId, leaseId, mismatch, now());

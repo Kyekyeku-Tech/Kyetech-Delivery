@@ -11,6 +11,8 @@ import MerchantPage from './pages/MerchantPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import RecipientReviewPage from './pages/RecipientReviewPage';
+import NotFoundPage from './pages/NotFoundPage';
+import { isAppPathname, normalizeAppPathname } from './lib/appRoutes';
 import './platform-notice.css';
 import LoadingScreen from './components/LoadingScreen';
 import AdminOtpPage from './pages/AdminOtpPage';
@@ -35,7 +37,8 @@ export default function App(){
       window.history.replaceState(null, '', `${window.location.pathname}${parameters.size ? '?' + parameters.toString() : ''}${window.location.hash}`);
     }
   }, [requestNavigation, user?.uid, profile?.role, isAdmin]);
-  if(window.location.pathname==='/review')return <RecipientReviewPage token={new URLSearchParams(window.location.search).get('token') || ''}/>;
+  if(!isAppPathname(window.location.pathname))return <NotFoundPage/>;
+  if(normalizeAppPathname(window.location.pathname)==='/review')return <RecipientReviewPage token={new URLSearchParams(window.location.search).get('token') || ''}/>;
   if(authLoading||adminLoading)return <LoadingScreen/>;
   if(!user||authActionPending)return <AuthPage/>;
   if(user&&!profile&&dataLoading)return <LoadingScreen message="Opening your profile…"/>;

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { appInstallSnapshot, confirmAppInstalled, dismissAppInstall, openAppInstallGuide, promptAppInstall, subscribeAppInstall } from '../lib/appInstall';
+import { isAppPathname, normalizeAppPathname } from '../lib/appRoutes';
 import { Button, Icon } from './UI';
 import './install-app.css';
 
@@ -62,7 +63,7 @@ export function InstallAppPrompt() {
     if (outcome === 'unavailable') openAppInstallGuide();
     else dismissAppInstall();
   }
-  if (installed || !dialogMode || window.location.pathname === '/review') return null;
+  if (installed || !dialogMode || !isAppPathname(window.location.pathname) || normalizeAppPathname(window.location.pathname) === '/review') return null;
   return <InstallDialog mode={dialogMode} platform={platform} busy={prompting} onInstall={install}/>;
 }
 

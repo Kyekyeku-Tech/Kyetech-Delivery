@@ -37,6 +37,13 @@ function deliveryPwa() {
         .replace('__KYETECH_PWA_CACHE_VERSION__', version.digest('hex').slice(0, 16))
         .replace('/* __KYETECH_PWA_PRECACHE__ */ []', JSON.stringify([...publicFiles, ...builtAssets.map((fileName) => `/${fileName}`)]));
       this.emitFile({ type: 'asset', fileName: 'sw.js', source });
+      const index = bundle['index.html'];
+      if (index?.type === 'asset') this.emitFile({
+        type: 'asset', fileName: '404.html',
+        source: String(index.source)
+          .replace('<title>KyeTech Delivery</title>', '<title>404 - Page not found | KyeTech Delivery</title>')
+          .replace('</head>', '<meta name="robots" content="noindex" />\n  </head>'),
+      });
     },
   };
 }
